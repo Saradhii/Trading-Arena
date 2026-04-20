@@ -3,7 +3,6 @@ import {
   HeroLiquidMetalContainer,
   HeroLiquidMetalContent,
   HeroLiquidMetalVisual,
-  HeroLiquidMetalMobileVisual,
 } from "@/components/ui/hero-liquid-metal"
 import { PixelHeading } from "@/components/ui/pixel-heading-character"
 import { PixelParagraphInverse } from "@/components/ui/pixel-paragraph-words-inverse"
@@ -50,14 +49,12 @@ export default function Page() {
             </div>
 
             <div className="pt-2">
-              <CosmicButton href="/dashboard">Enter the Arena</CosmicButton>
+              <CosmicButton href="/dashboard" target="_self" rel="">Enter the Arena</CosmicButton>
             </div>
           </HeroLiquidMetalContent>
 
           <HeroLiquidMetalVisual />
         </HeroLiquidMetalContainer>
-
-        <HeroLiquidMetalMobileVisual />
       </HeroLiquidMetalRoot>
     </main>
   )
