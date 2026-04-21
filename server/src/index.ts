@@ -1,9 +1,20 @@
-import { Hono } from 'hono'
+import { Hono } from "hono";
+import { createDb } from "./db";
 
-const app = new Hono()
+type Bindings = {
+  DB: D1Database;
+};
 
-app.get('/', (c) => {
-  return c.text('Hello Hono!')
-})
+const app = new Hono<{ Bindings: Bindings }>();
 
-export default app
+app.get("/", (c) => {
+  return c.text("Hello Hono!");
+});
+
+app.get("/health", async (c) => {
+  const db = createDb(c.env.DB);
+  const result = await db.run("SELECT 1 as ok");
+  return c.json({ status: "ok", db: result });
+});
+
+export default app;
