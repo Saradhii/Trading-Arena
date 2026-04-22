@@ -16,6 +16,8 @@ export const aiAgents = sqliteTable("ai_agents", {
   parametersCount: text("parameters_count"),
   releaseDate: text("release_date"),
   parentCompany: text("parent_company"),
+  provider: text("provider").notNull(),
+  model: text("model").notNull(),
   cashBalance: real("cash_balance").notNull().default(100000),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
@@ -93,4 +95,39 @@ export const assetsRelations = relations(assets, ({ many }) => ({
 export const tradingSessionsRelations = relations(tradingSessions, ({ many }) => ({
   orders: many(orders),
   snapshots: many(netWorthSnapshots),
+  sessionLogs: many(sessionLogs),
 }));
+
+export const llmProviders = sqliteTable("llm_providers", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull().unique(),
+  baseUrl: text("base_url").notNull(),
+  priority: integer("priority").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  lastHealthCheck: integer("last_health_check", { mode: "timestamp" }),
+  isHealthy: integer("is_healthy", { mode: "boolean" }).notNull().default(true),
+  rateLimitRemaining: integer("rate_limit_remaining"),
+  cooldownUntil: integer("cooldown_until", { mode: "timestamp" }),
+});
+
+export const sessionLogs = sqliteTable("session_logs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  sessionId: text("session_id").references(() => tradingSessions.id),
+  agentId: text("agent_id").references(() => aiAgents.id),
+  providerUsed: text("provider_used").notNull(),
+  modelUsed: text("model_used").notNull(),
+  status: text("status", { enum: ["success", "skipped", "failed"] }).notNull(),
+  failureReason: text("failure_reason"),
+  toolCallsMade: integer("tool_calls_made").default(0),
+  tokensUsed: integer("tokens_used"),
+  latencyMs: integer("latency_ms"),
+  rateLimitRemaining: integer("rate_limit_remaining"),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
+
+export const sessionLogsRelations = relations(sessionLogs, ({ one }) => ({
+  session: one(tradingSessions, { fields: [sessionLogs.sessionId], references: [tradingSessions.id] }),
+  agent: one(aiAgents, { fields: [sessionLogs.agentId], references: [aiAgents.id] }),
+}));
+
+export const llmProvidersRelations = relations(llmProviders, () => ({}));

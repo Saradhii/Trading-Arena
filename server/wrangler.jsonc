@@ -7,7 +7,11 @@
     {
       "binding": "DB",
       "database_name": "trading-arena-db",
-      "database_id": ""
+      "database_id": "f41a5f40-380a-47f5-94ff-932f5640a7c8",
+      "migrations_dir": "drizzle"
     }
-  ]
+  ],
+  "triggers": {
+    "crons": ["0 */5 * * *"]
+  }
 }
