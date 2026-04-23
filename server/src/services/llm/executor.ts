@@ -6,6 +6,7 @@ interface ToolResult {
   success: boolean;
   toolCallId: string;
   functionName: string;
+  args?: Record<string, unknown>;
   result?: unknown;
   error?: string;
 }
@@ -74,6 +75,7 @@ export async function executeToolCalls(
         success: true,
         toolCallId: call.id,
         functionName: fnName,
+        args,
         result,
       });
     } catch (err) {
