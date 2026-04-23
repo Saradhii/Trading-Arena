@@ -6,7 +6,7 @@ import { sessionRoutes } from "./routes/sessions";
 import { leaderboardRoutes } from "./routes/leaderboard";
 import { providerRoutes } from "./routes/providers";
 import { tradingSessionRoutes } from "./routes/trading-session";
-import { runHealthChecks } from "./services/llm";
+import { runTradingSession } from "./services/trading-session";
 
 type Bindings = {
   DB: D1Database;
@@ -33,5 +33,5 @@ export const scheduled: ExportedHandlerScheduledHandler<Bindings> = async (
   _event,
   env,
 ) => {
-  await runHealthChecks(env);
+  await runTradingSession(env);
 };
