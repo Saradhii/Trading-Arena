@@ -27,11 +27,9 @@ app.route("/api/leaderboard", leaderboardRoutes);
 app.route("/api/providers", providerRoutes);
 app.route("/api/trading-session", tradingSessionRoutes);
 
-export default app;
-
-export const scheduled: ExportedHandlerScheduledHandler<Bindings> = async (
-  _event,
-  env,
-) => {
-  await runTradingSession(env);
-};
+export default {
+  fetch: app.fetch,
+  scheduled: async (_event, env) => {
+    await runTradingSession(env);
+  },
+} satisfies ExportedHandler<Bindings>;
