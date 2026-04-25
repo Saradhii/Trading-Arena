@@ -98,16 +98,23 @@ export const tradingSessionsRelations = relations(tradingSessions, ({ many }) =>
   sessionLogs: many(sessionLogs),
 }));
 
-export const llmProviders = sqliteTable("llm_providers", {
+export const cryptos = sqliteTable("cryptos", {
   id: text("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  baseUrl: text("base_url").notNull(),
-  priority: integer("priority").notNull(),
+  symbol: text("symbol").notNull().unique(),
+  name: text("name").notNull(),
+  externalId: text("external_id").notNull().unique(),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
-  lastHealthCheck: integer("last_health_check", { mode: "timestamp" }),
-  isHealthy: integer("is_healthy", { mode: "boolean" }).notNull().default(true),
-  rateLimitRemaining: integer("rate_limit_remaining"),
-  cooldownUntil: integer("cooldown_until", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
+});
+
+export const stocks = sqliteTable("stocks", {
+  id: text("id").primaryKey(),
+  symbol: text("symbol").notNull().unique(),
+  name: text("name").notNull(),
+  externalId: text("external_id").notNull().unique(),
+  exchange: text("exchange").notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
 });
 
 export const sessionLogs = sqliteTable("session_logs", {
@@ -129,5 +136,3 @@ export const sessionLogsRelations = relations(sessionLogs, ({ one }) => ({
   session: one(tradingSessions, { fields: [sessionLogs.sessionId], references: [tradingSessions.id] }),
   agent: one(aiAgents, { fields: [sessionLogs.agentId], references: [aiAgents.id] }),
 }));
-
-export const llmProvidersRelations = relations(llmProviders, () => ({}));

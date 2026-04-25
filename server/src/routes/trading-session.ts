@@ -5,7 +5,7 @@ import { desc } from "drizzle-orm";
 import { sessionLogs, tradingSessions } from "../db/schema";
 
 export const tradingSessionRoutes = new Hono<{
-  Bindings: { DB: D1Database; GROQ_API_KEY: string; CEREBRAS_API_KEY: string; OPENROUTER_API_KEY: string };
+  Bindings: { DB: D1Database; GROQ_API_KEY: string; CEREBRAS_API_KEY: string; OPENROUTER_API_KEY: string; FINNHUB_API_KEY: string; ZAI_API_KEY: string; GOOGLE_API_KEY: string; COINGECKO_API_KEY: string };
 }>();
 
 tradingSessionRoutes.post("/run", async (c) => {

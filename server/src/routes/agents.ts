@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createDb } from "../db";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { aiAgents, holdings, netWorthSnapshots, sessionLogs } from "../db/schema";
 import { getPortfolio, snapshotNetWorth } from "../tools/trading";
 

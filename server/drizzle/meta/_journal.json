@@ -15,6 +15,20 @@
       "when": 1776882335694,
       "tag": "0001_legal_carlie_cooper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1777114136986,
+      "tag": "0002_organic_sphinx",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1777142306610,
+      "tag": "0003_low_scalphunter",
+      "breakpoints": true
     }
   ]
 }

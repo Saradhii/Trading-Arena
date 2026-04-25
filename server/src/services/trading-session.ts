@@ -8,6 +8,8 @@ import { tradingTools } from "../services/llm/tools";
 import { executeToolCalls } from "../services/llm/executor";
 import type { LLMMessage, Env } from "../services/llm/types";
 import { RateLimitError, ProviderError } from "../services/llm/types";
+import { refreshAssetPrices } from "./market-data";
+import type { RefreshResult } from "./market-data";
 
 interface AgentSessionResult {
   agentId: string;
@@ -32,6 +34,7 @@ interface AgentSessionResult {
 interface SessionRunResult {
   sessionId: string;
   sessionNumber: number;
+  priceRefresh: RefreshResult;
   results: AgentSessionResult[];
   totalTrades: number;
   successfulAgents: number;
@@ -78,31 +81,29 @@ function buildSystemPrompt(
     )
     .join("\n");
 
-  return `You are ${agentName}, an AI trading agent competing in a trading arena against other AI agents.
+  return `You are ${agentName}, a hedge fund portfolio manager. You manage capital across crypto and equities markets. Your role is to allocate capital where you see asymmetric risk-adjusted return — and just as importantly, to refrain when the data does not support a thesis.
 
 ## Your Portfolio
 - Cash: $${portfolio.cashBalance.toFixed(2)}
 - Portfolio Value: $${portfolio.portfolioValue.toFixed(2)}
 - Net Worth: $${portfolio.netWorth.toFixed(2)}
 
-### Holdings
+### Current Holdings
 ${holdingsStr}
 
-## Market Overview
+## Available Market
 ${marketStr}
 
-## Available Tools
-- market_buy(assetSymbol, quantity, reasoning) — Buy at current market price
-- market_sell(assetSymbol, quantity, reasoning) — Sell at current market price
+## Available Actions
+- market_buy(assetSymbol, quantity, reasoning) — open or grow a position
+- market_sell(assetSymbol, quantity, reasoning) — close or reduce a position
+- Hold by taking no action — no tool call means no trade this session
 
-## Rules
-- You may make 0-2 trades per session
-- You must include reasoning for every trade
-- You can choose to hold (no tool calls = no trade)
-- Consider diversification and risk management
-- You are competing against other AI agents for highest net worth
-
-Analyze the market and make your trading decisions now.`;
+## Your discipline
+- Holding is a legitimate, often correct decision. Strong managers protect capital when no clear edge exists; they do not force trades.
+- Trade only when your analysis identifies a clear thesis that justifies the risk and position size.
+- You may make up to 2 trades this session, or zero if you see no edge.
+- When you trade, your reasoning should reflect actual market analysis — your read on the asset, the position, and why now — not generic risk-management filler.`;
 }
 
 async function runAgentSession(
@@ -132,7 +133,7 @@ async function runAgentSession(
 
     const messages: LLMMessage[] = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Make your trading decisions for this session." },
+      { role: "user", content: "Review the portfolio and market. Trade only if you see a thesis that justifies the risk; otherwise hold." },
     ];
 
     const response = await chatWithTools(env, agent.agentId, messages, tradingTools);
@@ -198,6 +199,8 @@ async function runAgentSession(
 export async function runTradingSession(env: Env): Promise<SessionRunResult> {
   const db = createDb(env.DB);
 
+  const priceRefresh = await refreshAssetPrices(env, db);
+
   const lastSession = await db.query.tradingSessions.findFirst({
     orderBy: desc(tradingSessions.sessionNumber),
   });
@@ -227,6 +230,7 @@ export async function runTradingSession(env: Env): Promise<SessionRunResult> {
   return {
     sessionId,
     sessionNumber: nextNumber,
+    priceRefresh,
     results,
     totalTrades: results.reduce((sum, r) => sum + r.trades, 0),
     successfulAgents: results.filter((r) => r.status === "success").length,

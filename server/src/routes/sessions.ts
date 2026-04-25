@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { createDb } from "../db";
 import { tradingSessions, orders } from "../db/schema";
-import { eq, sql, desc } from "drizzle-orm";
+import { eq, desc } from "drizzle-orm";
 import { executePendingLimitOrders } from "../tools/trading";
 
 export const sessionRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
