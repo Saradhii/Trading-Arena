@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const API_URL =
   process.env.NODE_ENV === "production"
-    ? process.env.WORKER_URL ?? "https://server.saradhi.workers.dev"
+    ? process.env.WORKER_URL ?? "https://server.saradhi8142385201.workers.dev"
     : "http://localhost:8787";
 
 const nextConfig: NextConfig = {
