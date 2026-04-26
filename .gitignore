@@ -7,3 +7,6 @@
 
 # OS temp
 Thumbs.db
+
+# wrangler local state/cache
+.wrangler/

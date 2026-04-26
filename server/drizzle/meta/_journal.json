@@ -29,6 +29,13 @@
       "when": 1777142306610,
       "tag": "0003_low_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1777146982146,
+      "tag": "0004_left_carnage",
+      "breakpoints": true
     }
   ]
 }

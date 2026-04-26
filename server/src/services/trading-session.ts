@@ -16,6 +16,8 @@ interface AgentSessionResult {
   agentName: string;
   status: "success" | "skipped" | "failed";
   failureReason?: string;
+  decisionType: "trade" | "hold" | "error";
+  assistantText: string | null;
   trades: number;
   tradeDetails: Array<{
     action: string;
@@ -103,7 +105,11 @@ ${marketStr}
 - Holding is a legitimate, often correct decision. Strong managers protect capital when no clear edge exists; they do not force trades.
 - Trade only when your analysis identifies a clear thesis that justifies the risk and position size.
 - You may make up to 2 trades this session, or zero if you see no edge.
-- When you trade, your reasoning should reflect actual market analysis — your read on the asset, the position, and why now — not generic risk-management filler.`;
+- When you trade, your reasoning should reflect actual market analysis — your read on the asset, the position, and why now — not generic risk-management filler.
+
+## Required output
+- Always emit a short text message (2–4 sentences) summarizing your read of the market and the decision you are making this session — even if you are holding. This is your audit trail.
+- If you trade, also call market_buy / market_sell. If you hold, do not call any tool, but the text message is still required and should explain *why* you are holding.`;
 }
 
 async function runAgentSession(
@@ -118,6 +124,8 @@ async function runAgentSession(
     agentId: agent.agentId,
     agentName: agent.agentName,
     status: "success",
+    decisionType: "hold",
+    assistantText: null,
     trades: 0,
     tradeDetails: [],
     providerUsed: agent.provider,
@@ -133,7 +141,7 @@ async function runAgentSession(
 
     const messages: LLMMessage[] = [
       { role: "system", content: systemPrompt },
-      { role: "user", content: "Review the portfolio and market. Trade only if you see a thesis that justifies the risk; otherwise hold." },
+      { role: "user", content: "Review the portfolio and market. Always include a short text rationale describing your decision (trade or hold). Trade only if you see a thesis that justifies the risk; otherwise hold." },
     ];
 
     const response = await chatWithTools(env, agent.agentId, messages, tradingTools);
@@ -141,6 +149,7 @@ async function runAgentSession(
     result.providerUsed = response.providerUsed;
     result.modelUsed = response.modelUsed;
     result.tokensUsed = response.tokensUsed;
+    result.assistantText = response.content ?? null;
 
     if (response.toolCalls && response.toolCalls.length > 0) {
       const execResults = await executeToolCalls(
@@ -159,19 +168,32 @@ async function runAgentSession(
         success: r.success,
         error: r.error,
       }));
+      result.decisionType = result.trades > 0 ? "trade" : "hold";
+    } else {
+      result.decisionType = "hold";
     }
 
     await snapshotNetWorth(db, agent.agentId, sessionId);
   } catch (err) {
+    result.decisionType = "error";
     if (err instanceof RateLimitError) {
       result.status = "skipped";
       result.failureReason = "rate_limited";
+      console.warn(
+        `[trading-session] rate_limited agent=${agent.agentId} provider=${agent.provider} model=${agent.model} session=${sessionId} retryAfter=${err.retryAfter ?? "n/a"}`,
+      );
     } else if (err instanceof ProviderError) {
       result.status = "failed";
       result.failureReason = `provider_error_${err.statusCode}`;
+      console.error(
+        `[trading-session] provider_error agent=${agent.agentId} provider=${agent.provider} model=${agent.model} session=${sessionId} status=${err.statusCode}`,
+      );
     } else {
       result.status = "failed";
       result.failureReason = err instanceof Error ? err.message : "unknown_error";
+      console.error(
+        `[trading-session] unknown_error agent=${agent.agentId} provider=${agent.provider} model=${agent.model} session=${sessionId} message=${result.failureReason}`,
+      );
     }
   }
 
@@ -188,6 +210,8 @@ async function runAgentSession(
     modelUsed: result.modelUsed,
     status: result.status,
     failureReason: result.failureReason ?? null,
+    decisionType: result.decisionType,
+    assistantText: result.assistantText,
     toolCallsMade: result.trades,
     tokensUsed: result.tokensUsed ?? null,
     latencyMs: result.latencyMs,
@@ -215,12 +239,38 @@ export async function runTradingSession(env: Env): Promise<SessionRunResult> {
 
   const agents = await db.query.aiAgents.findMany();
 
-  const results: AgentSessionResult[] = [];
-
+  const byProvider = new Map<string, typeof agents>();
   for (const agent of agents) {
-    const agentResult = await runAgentSession(db, env, agent, sessionId);
-    results.push(agentResult);
+    const list = byProvider.get(agent.provider) ?? [];
+    list.push(agent);
+    byProvider.set(agent.provider, list);
   }
+
+  console.log(
+    `[trading-session] session=${sessionId} number=${nextNumber} agents=${agents.length} providerGroups=${byProvider.size}`,
+  );
+
+  const groupResults = await Promise.all(
+    Array.from(byProvider.entries()).map(async ([provider, providerAgents]) => {
+      const groupStart = Date.now();
+      const out: AgentSessionResult[] = [];
+      for (const agent of providerAgents) {
+        out.push(await runAgentSession(db, env, agent, sessionId));
+      }
+      const skipped = out.filter((r) => r.failureReason === "rate_limited").length;
+      if (skipped > 0) {
+        console.warn(
+          `[trading-session] provider=${provider} skipped=${skipped}/${providerAgents.length} due to rate limits in session=${sessionId}`,
+        );
+      }
+      console.log(
+        `[trading-session] provider=${provider} done agents=${providerAgents.length} ms=${Date.now() - groupStart}`,
+      );
+      return out;
+    }),
+  );
+
+  const results: AgentSessionResult[] = groupResults.flat();
 
   await db
     .update(tradingSessions)

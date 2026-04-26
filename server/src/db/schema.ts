@@ -125,6 +125,8 @@ export const sessionLogs = sqliteTable("session_logs", {
   modelUsed: text("model_used").notNull(),
   status: text("status", { enum: ["success", "skipped", "failed"] }).notNull(),
   failureReason: text("failure_reason"),
+  decisionType: text("decision_type", { enum: ["trade", "hold", "error"] }),
+  assistantText: text("assistant_text"),
   toolCallsMade: integer("tool_calls_made").default(0),
   tokensUsed: integer("tokens_used"),
   latencyMs: integer("latency_ms"),
