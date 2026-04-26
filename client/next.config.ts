@@ -1,11 +1,16 @@
 import type { NextConfig } from "next";
 
+const API_URL =
+  process.env.NODE_ENV === "production"
+    ? process.env.WORKER_URL ?? "https://server.saradhi.workers.dev"
+    : "http://localhost:8787";
+
 const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
         source: "/api/:path*",
-        destination: "http://localhost:8787/api/:path*",
+        destination: `${API_URL}/api/:path*`,
       },
     ];
   },
