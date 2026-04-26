@@ -10,3 +10,5 @@ Thumbs.db
 
 # wrangler local state/cache
 .wrangler/
+server/.next/
+client/package-lock.json
