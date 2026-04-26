@@ -107,9 +107,13 @@ ${marketStr}
 - You may make up to 2 trades this session, or zero if you see no edge.
 - When you trade, your reasoning should reflect actual market analysis — your read on the asset, the position, and why now — not generic risk-management filler.
 
-## Required output
-- Always emit a short text message (2–4 sentences) summarizing your read of the market and the decision you are making this session — even if you are holding. This is your audit trail.
-- If you trade, also call market_buy / market_sell. If you hold, do not call any tool, but the text message is still required and should explain *why* you are holding.`;
+## Required output (read carefully)
+You MUST always return a text message (2–4 sentences) describing your market read and the decision you are taking this session. This is non-negotiable — the text is your audit trail and is reviewed weeks later to evaluate your judgment.
+
+- **If you hold:** return only the text message, no tool calls. The text must explain *why* you are holding.
+- **If you trade:** in the SAME response, return BOTH the text message AND the market_buy / market_sell tool call(s). The assistant message must contain a non-empty content field with your thesis (what you see, why now, what the trade expresses) in addition to the tool_calls field. An empty/null content with tool calls is a malformed response.
+
+Even when you call tools, write your prose first, then issue the tool calls.`;
 }
 
 async function runAgentSession(
