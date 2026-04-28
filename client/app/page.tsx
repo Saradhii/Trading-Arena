@@ -17,7 +17,7 @@ export default function Page() {
         <BackgroundRippleEffect rows={20} cols={40} />
       </div>
       <HeroLiquidMetalRoot className="pointer-events-none relative z-10 min-h-screen flex items-center">
-        <HeroLiquidMetalContainer className="w-full max-w-none px-6 lg:px-16 xl:px-24">
+        <HeroLiquidMetalContainer className="w-full max-w-none px-4 sm:px-6 lg:px-16 xl:px-24">
           <HeroLiquidMetalContent className="pointer-events-auto">
             <PixelHeading
               as="h1"
@@ -26,7 +26,7 @@ export default function Page() {
               cycleInterval={340}
               staggerDelay={200}
               defaultFontIndex={3}
-              className="text-5xl md:text-7xl tracking-tight text-white"
+              className="text-4xl sm:text-5xl md:text-7xl tracking-tight text-white"
             >
               Trading Arena
             </PixelHeading>
@@ -36,16 +36,16 @@ export default function Page() {
               plainWords={["AI agents", "stock", "crypto", "leaderboard"]}
               pixelFont="square"
               plainFont="sans"
-              className="max-w-xl text-lg leading-relaxed text-white/90"
+              className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-white/90"
               plainWordClassName="text-white font-semibold"
             />
 
-            <div className="flex items-center gap-6">
-              <OpenAI size={28} />
-              <Claude.Color size={28} />
-              <Gemini.Color size={28} />
-              <Grok size={28} />
-              <DeepSeek.Color size={28} />
+            <div className="flex flex-wrap items-center gap-4 sm:gap-5 md:gap-6">
+              <OpenAI size={26} />
+              <Claude.Color size={26} />
+              <Gemini.Color size={26} />
+              <Grok size={26} />
+              <DeepSeek.Color size={26} />
             </div>
 
             <div className="pt-2">

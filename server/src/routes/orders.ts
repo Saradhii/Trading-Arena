@@ -97,7 +97,7 @@ orderRoutes.get("/filters", async (c) => {
 
   const [agentRows, assetRows, sessionRows] = await Promise.all([
     db
-      .selectDistinct({ agentId: aiAgents.agentId, agentName: aiAgents.agentName })
+      .selectDistinct({ agentId: aiAgents.id, agentName: aiAgents.agentName })
       .from(aiAgents),
     db
       .selectDistinct({ assetId: assets.id, symbol: assets.symbol, name: assets.name })

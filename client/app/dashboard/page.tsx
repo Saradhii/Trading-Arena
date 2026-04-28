@@ -42,6 +42,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from "@/components/ui/chart"
+import { useIsMobile } from "@/hooks/use-mobile"
 import OpenAI from "@lobehub/icons/es/OpenAI"
 import Meta from "@lobehub/icons/es/Meta"
 import Qwen from "@lobehub/icons/es/Qwen"
@@ -249,8 +250,9 @@ function LeaderboardCard({
 }: {
   leaderboard: LeaderboardEntry[]
 }) {
+  const isMobile = useIsMobile()
+  const cols = isMobile ? 3 : 4
   const rows = leaderboard.length + 1
-  const cols = 4
   const maxNetWorth = Math.max(...leaderboard.map((a) => a.netWorth), 100_000)
 
   const { canvasRef } = useGridBeam({
@@ -263,6 +265,10 @@ function LeaderboardCard({
     strength: 1,
     breathe: true,
   })
+
+  const headers = isMobile
+    ? (["#", "Model", "P&L"] as const)
+    : (["Rank", "Model", "Net Worth", "P&L"] as const)
 
   return (
     <Card className="flex h-full flex-col">
@@ -280,14 +286,14 @@ function LeaderboardCard({
         <div
           className="relative z-3 grid h-full"
           style={{
-            gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gridTemplateRows: `repeat(${rows}, 1fr)`,
+            gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+            gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
           }}
         >
-          {(["Rank", "Model", "Net Worth", "P&L"] as const).map((h) => (
+          {headers.map((h) => (
             <div
               key={h}
-              className="flex items-center px-4 font-semibold text-[10.5px] text-muted-foreground uppercase tracking-widest"
+              className={`flex items-center font-semibold text-[10.5px] text-muted-foreground uppercase tracking-widest ${isMobile ? "px-2" : "px-4"}`}
             >
               {h}
             </div>
@@ -300,6 +306,43 @@ function LeaderboardCard({
             const pnlPct = ((pnl / 100_000) * 100).toFixed(1)
             const barPct = (agent.netWorth / maxNetWorth) * 100
             const color = AGENT_COLORS[agent.agentName] ?? "oklch(0.6 0 0)"
+
+            if (isMobile) {
+              return (
+                <Fragment key={agent.agentId}>
+                  <div className="flex items-center px-2 font-pixel-square text-xs text-muted-foreground">
+                    #{agent.rank}
+                  </div>
+                  <div className="flex items-center gap-2 px-2">
+                    <div className="flex size-5 shrink-0 items-center justify-center rounded border border-border bg-background/60">
+                      {Icon ? <Icon size={12} /> : null}
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate text-xs">{agent.agentName}</span>
+                      <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                        {formatCash(agent.netWorth)}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2">
+                    <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${barPct}%`,
+                          backgroundColor: color,
+                        }}
+                      />
+                    </div>
+                    <span
+                      className={`min-w-[32px] text-right text-[10px] tabular-nums ${pnlPositive ? "text-emerald-400" : "text-red-400"}`}
+                    >
+                      {pnlPositive ? "+" : ""}{pnlPct}%
+                    </span>
+                  </div>
+                </Fragment>
+              )
+            }
 
             return (
               <Fragment key={agent.agentId}>
@@ -454,6 +497,8 @@ function AssetDistributionChart({
 // ─── Portfolio Allocation Radar ──────────────────────────────────
 
 function AllocationChart({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
+  const isMobile = useIsMobile()
+
   const data = leaderboard.map((a) => ({
     agent: a.agentName,
     cash: a.cashBalance,
@@ -465,6 +510,14 @@ function AllocationChart({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
     invested: { label: "Invested", color: "oklch(0.7 0.18 200)" },
   }
 
+  const tickFormatter = (label: string) => {
+    if (!isMobile) return label
+    // Drop trailing parameter/variant suffixes (e.g. "GPT-OSS-120B" → "GPT-OSS")
+    const parts = label.split("-")
+    if (parts.length <= 2) return label
+    return parts.slice(0, 2).join("-")
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -472,16 +525,17 @@ function AllocationChart({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
         <CardDescription>Cash vs invested per agent</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[250px]">
-          <RadarChart data={data} cx="50%" cy="50%" outerRadius="70%">
+        <ChartContainer config={chartConfig} className="mx-auto aspect-square h-[220px] sm:h-[250px] w-full max-w-[320px] sm:max-w-none">
+          <RadarChart data={data} cx="50%" cy="50%" outerRadius={isMobile ? "62%" : "70%"}>
             <PolarGrid
               stroke="oklch(1 0 0 / 10%)"
               radialLines={true}
             />
             <PolarAngleAxis
               dataKey="agent"
-              tick={{ fontSize: 11, fill: "oklch(0.55 0 0)" }}
+              tick={{ fontSize: isMobile ? 9 : 11, fill: "oklch(0.55 0 0)" }}
               tickLine={false}
+              tickFormatter={tickFormatter}
             />
             <ChartTooltip
               content={
@@ -558,9 +612,56 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <div className="flex flex-1 flex-col gap-3 p-3 pt-0 sm:gap-4 sm:p-4 sm:pt-0">
+        {/* Stats Row */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Total AUM</CardDescription>
+              <CardTitle className="font-pixel-square text-lg tabular-nums">
+                {loading ? <Skeleton className="h-5 w-20" /> : formatCash(aum)}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Total P&L</CardDescription>
+              <CardTitle className={`font-pixel-square text-lg tabular-nums ${pnlPositive ? "text-emerald-400" : "text-red-400"}`}>
+                {loading ? <Skeleton className="h-5 w-20" /> : `${pnlPositive ? "+" : ""}${formatCash(pnl)}`}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Sessions</CardDescription>
+              <CardTitle className="font-pixel-square text-lg tabular-nums">
+                {loading ? <Skeleton className="h-5 w-12" /> : stats?.totalSessions ?? 0}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>Best Performer</CardDescription>
+              <CardTitle className="font-pixel-square text-lg">
+                {loading ? (
+                  <Skeleton className="h-5 w-24" />
+                ) : stats?.bestPerformer ? (
+                  <span className="truncate">
+                    {stats.bestPerformer.agentName}
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {formatCash(stats.bestPerformer.netWorth)}
+                    </span>
+                  </span>
+                ) : (
+                  "—"
+                )}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+        </div>
+
         {/* Charts Row */}
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
           <div className="flex flex-col">
             <LeaderboardCard leaderboard={leaderboard} />
           </div>
@@ -570,7 +671,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Bottom Row */}
-        <div className="grid gap-4 lg:grid-cols-5">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <AllocationChart leaderboard={leaderboard} />
           </div>

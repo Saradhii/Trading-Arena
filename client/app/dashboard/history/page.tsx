@@ -188,7 +188,7 @@ export default function HistoryPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+      <div className="flex flex-1 flex-col gap-4 p-3 pt-0 sm:p-4 sm:pt-0">
         <div>
           <h1 className="font-pixel-square text-lg">Order History</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -197,86 +197,176 @@ export default function HistoryPage() {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={agentId} onValueChange={(v) => { setAgentId(v ?? ""); setPage(1) }}>
-            <SelectTrigger size="sm">
-              <SelectValue placeholder="All Agents" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters?.agents.map((a) => (
-                <SelectItem key={a.agentId} value={a.agentId}>
-                  {a.agentName}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="grid grid-cols-2 gap-2 sm:contents">
+            <Select value={agentId} onValueChange={(v) => { setAgentId(v ?? ""); setPage(1) }}>
+              <SelectTrigger size="sm" className="w-full sm:w-fit">
+                <SelectValue placeholder="All Agents" />
+              </SelectTrigger>
+              <SelectContent>
+                {filters?.agents.map((a) => (
+                  <SelectItem key={a.agentId} value={a.agentId}>
+                    {a.agentName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={assetId} onValueChange={(v) => { setAssetId(v ?? ""); setPage(1) }}>
-            <SelectTrigger size="sm">
-              <SelectValue placeholder="All Assets" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters?.assets.map((a) => (
-                <SelectItem key={a.assetId} value={a.assetId}>
-                  {a.symbol}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={assetId} onValueChange={(v) => { setAssetId(v ?? ""); setPage(1) }}>
+              <SelectTrigger size="sm" className="w-full sm:w-fit">
+                <SelectValue placeholder="All Assets" />
+              </SelectTrigger>
+              <SelectContent>
+                {filters?.assets.map((a) => (
+                  <SelectItem key={a.assetId} value={a.assetId}>
+                    {a.symbol}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={orderType} onValueChange={(v) => { setOrderType(v ?? ""); setPage(1) }}>
-            <SelectTrigger size="sm">
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters?.orderTypes.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {ORDER_TYPE_LABELS[t] ?? t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={orderType} onValueChange={(v) => { setOrderType(v ?? ""); setPage(1) }}>
+              <SelectTrigger size="sm" className="w-full sm:w-fit">
+                <SelectValue placeholder="All Types" />
+              </SelectTrigger>
+              <SelectContent>
+                {filters?.orderTypes.map((t) => (
+                  <SelectItem key={t} value={t}>
+                    {ORDER_TYPE_LABELS[t] ?? t}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={status} onValueChange={(v) => { setStatus(v ?? ""); setPage(1) }}>
-            <SelectTrigger size="sm">
-              <SelectValue placeholder="All Statuses" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters?.statuses.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={status} onValueChange={(v) => { setStatus(v ?? ""); setPage(1) }}>
+              <SelectTrigger size="sm" className="w-full sm:w-fit">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                {filters?.statuses.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {s.charAt(0).toUpperCase() + s.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-          <Select value={sessionId} onValueChange={(v) => { setSessionId(v ?? ""); setPage(1) }}>
-            <SelectTrigger size="sm">
-              <SelectValue placeholder="All Sessions" />
-            </SelectTrigger>
-            <SelectContent>
-              {filters?.sessions.map((s) => (
-                <SelectItem key={s.id} value={s.id}>
-                  Session {s.sessionNumber}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+            <Select value={sessionId} onValueChange={(v) => { setSessionId(v ?? ""); setPage(1) }}>
+              <SelectTrigger size="sm" className="col-span-2 w-full sm:col-span-1 sm:w-fit">
+                <SelectValue placeholder="All Sessions" />
+              </SelectTrigger>
+              <SelectContent>
+                {filters?.sessions.map((s) => (
+                  <SelectItem key={s.id} value={s.id}>
+                    Session {s.sessionNumber}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {hasActiveFilters && (
-            <Button variant="ghost" size="sm" onClick={resetFilters} className="h-7 gap-1 text-xs text-muted-foreground">
-              <XIcon className="size-3" />
-              Clear
-            </Button>
-          )}
+          <div className="flex items-center justify-between gap-2 sm:contents">
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={resetFilters} className="h-7 gap-1 text-xs text-muted-foreground">
+                <XIcon className="size-3" />
+                Clear
+              </Button>
+            )}
 
-          <div className="ml-auto text-xs text-muted-foreground tabular-nums">
-            {data ? `${data.total} order${data.total !== 1 ? "s" : ""}` : ""}
+            <div className="text-xs text-muted-foreground tabular-nums sm:ml-auto">
+              {data ? `${data.total} order${data.total !== 1 ? "s" : ""}` : ""}
+            </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="rounded-lg border border-border">
+        {/* Mobile card list */}
+        <div className="flex flex-col gap-2 md:hidden">
+          {loading ? (
+            Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="rounded-lg border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-12" />
+                </div>
+                <Skeleton className="mt-2 h-3 w-32" />
+                <Skeleton className="mt-2 h-3 w-full" />
+              </div>
+            ))
+          ) : data?.orders.length === 0 ? (
+            <div className="rounded-lg border border-border p-8 text-center text-sm text-muted-foreground">
+              No orders found
+            </div>
+          ) : (
+            data?.orders.map((order) => {
+              const Icon = companyIcons[order.agent.parentCompany ?? ""]
+              const isBuy = order.orderType.includes("buy")
+              const total = order.quantity * order.priceAtOrder
+
+              return (
+                <div
+                  key={order.id}
+                  className="flex flex-col gap-2 rounded-lg border border-border bg-card/40 p-3"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <div className="flex size-6 shrink-0 items-center justify-center rounded border border-border bg-background/60">
+                        {Icon ? <Icon size={14} /> : null}
+                      </div>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate text-sm">{order.agent.agentName}</span>
+                        <span className="text-[10px] text-muted-foreground tabular-nums">
+                          S{order.session.sessionNumber} · {formatDate(order.createdAt)}
+                        </span>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`shrink-0 border-none text-[10px] px-1.5 py-0 ${STATUS_STYLES[order.status] ?? ""}`}
+                    >
+                      {order.status}
+                    </Badge>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 border-none text-[10px] px-1.5 py-0 ${
+                          isBuy
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "bg-red-500/10 text-red-400"
+                        }`}
+                      >
+                        {ORDER_TYPE_LABELS[order.orderType] ?? order.orderType}
+                      </Badge>
+                      <span className="font-mono text-sm">{order.asset.symbol}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {order.asset.assetType}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <div className="font-mono text-sm tabular-nums">
+                        {formatCash(total)}
+                      </div>
+                      <div className="font-mono text-[10px] text-muted-foreground tabular-nums">
+                        {order.quantity} @ {formatCash(order.priceAtOrder)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {order.reasoning && (
+                    <p className="line-clamp-2 text-[11px] leading-relaxed text-muted-foreground">
+                      {order.reasoning}
+                    </p>
+                  )}
+                </div>
+              )
+            })
+          )}
+        </div>
+
+        {/* Desktop table */}
+        <div className="hidden rounded-lg border border-border md:block">
           <Table>
             <TableHeader>
               <TableRow>

@@ -20,16 +20,17 @@ dashboardRoutes.get("/stats", async (c) => {
   );
 
   const totalAUM = portfolios.reduce((sum, p) => sum + p.netWorth, 0);
-  const best = portfolios.reduce((a, b) => (a.netWorth > b.netWorth ? a : b));
+  const best = portfolios.length > 0
+    ? portfolios.reduce((a, b) => (a.netWorth > b.netWorth ? a : b))
+    : null;
 
   return c.json({
     totalAUM,
     totalSessions: sessions.length,
     totalTrades: tradeCountResult[0]?.count ?? 0,
-    bestPerformer: {
-      agentName: best.agentName,
-      netWorth: best.netWorth,
-    },
+    bestPerformer: best
+      ? { agentName: best.agentName, netWorth: best.netWorth }
+      : null,
   });
 });
 
@@ -39,7 +40,7 @@ dashboardRoutes.get("/recent-orders", async (c) => {
   const latestSession = await db.query.tradingSessions.findFirst({
     orderBy: desc(tradingSessions.sessionNumber),
   });
-  if (!latestSession) return c.json([]);
+  if (!latestSession) return c.json({ sessionNumber: 0, completedAt: null, orders: [] });
 
   const sessionOrders = await db.query.orders.findMany({
     where: eq(orders.sessionId, latestSession.id),

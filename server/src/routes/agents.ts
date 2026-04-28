@@ -9,7 +9,19 @@ export const agentRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
 agentRoutes.get("/", async (c) => {
   const db = createDb(c.env.DB);
   const agents = await db.query.aiAgents.findMany();
-  return c.json(agents);
+
+  const agentsWithPortfolio = await Promise.all(
+    agents.map(async (agent) => {
+      const portfolio = await getPortfolio(db, agent.agentId);
+      return {
+        ...agent,
+        portfolioValue: portfolio.portfolioValue,
+        netWorth: portfolio.netWorth,
+      };
+    })
+  );
+
+  return c.json(agentsWithPortfolio);
 });
 
 agentRoutes.get("/:agentId", async (c) => {

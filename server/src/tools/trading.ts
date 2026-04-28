@@ -166,7 +166,7 @@ export async function marketSell(
   await db.update(aiAgents).set({ cashBalance: agent.cashBalance + totalValue }).where(eq(aiAgents.id, agent.id));
 
   const newQuantity = holding.quantity - quantity;
-  if (newQuantity === 0) {
+  if (newQuantity < 1e-10) {
     await db.delete(holdings).where(eq(holdings.id, holding.id));
   } else {
     await db.update(holdings).set({ quantity: newQuantity, updatedAt: new Date() }).where(eq(holdings.id, holding.id));
@@ -207,7 +207,10 @@ export async function limitBuy(
   });
   if (!asset) throw new Error(`Asset ${assetSymbol} not found`);
 
-  if (agent.cashBalance < quantity * targetPrice) throw new Error("Insufficient funds for limit order");
+  const reserveAmount = quantity * targetPrice;
+  if (agent.cashBalance < reserveAmount) throw new Error("Insufficient funds for limit order");
+
+  await db.update(aiAgents).set({ cashBalance: agent.cashBalance - reserveAmount }).where(eq(aiAgents.id, agent.id));
 
   const order = await db.insert(orders).values({
     id: crypto.randomUUID(),
@@ -249,6 +252,13 @@ export async function limitSell(
   });
   if (!holding || holding.quantity < quantity) throw new Error("Insufficient holdings for limit order");
 
+  const newQuantity = holding.quantity - quantity;
+  if (newQuantity < 1e-10) {
+    await db.delete(holdings).where(eq(holdings.id, holding.id));
+  } else {
+    await db.update(holdings).set({ quantity: newQuantity, updatedAt: new Date() }).where(eq(holdings.id, holding.id));
+  }
+
   const order = await db.insert(orders).values({
     id: crypto.randomUUID(),
     agentId: agent.id,
@@ -268,13 +278,14 @@ export async function limitSell(
 export async function executePendingLimitOrders(db: Database, sessionId: string) {
   const pendingOrders = await db.query.orders.findMany({
     where: and(eq(orders.status, "pending"), eq(orders.sessionId, sessionId)),
-    with: { asset: true },
+    with: { asset: true, agent: true },
   });
 
-  const executed = [];
+  const executed: string[] = [];
 
   for (const order of pendingOrders) {
     const currentPrice = order.asset.currentPrice;
+    const agent = order.agent;
     let shouldExecute = false;
 
     if (order.orderType === "limit_buy" && currentPrice <= (order.targetPrice ?? 0)) {
@@ -286,13 +297,63 @@ export async function executePendingLimitOrders(db: Database, sessionId: string)
 
     if (shouldExecute) {
       if (order.orderType === "limit_buy") {
-        await marketBuy(db, (await db.query.aiAgents.findFirst({ where: eq(aiAgents.id, order.agentId) }))!.agentId, order.asset.symbol, order.quantity, order.reasoning ?? "Limit order executed", sessionId);
-        await db.update(orders).set({ status: "executed", executedAt: new Date() }).where(eq(orders.id, order.id));
+        const executionCost = order.quantity * currentPrice;
+        const reservedAmount = order.quantity * (order.targetPrice ?? currentPrice);
+        const refund = reservedAmount - executionCost;
+
+        const existingHolding = await db.query.holdings.findFirst({
+          where: and(eq(holdings.agentId, agent.id), eq(holdings.assetId, order.asset.id)),
+        });
+
+        if (existingHolding) {
+          const newQuantity = existingHolding.quantity + order.quantity;
+          const newAvgPrice = (existingHolding.averageBuyPrice * existingHolding.quantity + currentPrice * order.quantity) / newQuantity;
+          await db
+            .update(holdings)
+            .set({ quantity: newQuantity, averageBuyPrice: newAvgPrice, updatedAt: new Date() })
+            .where(eq(holdings.id, existingHolding.id));
+        } else {
+          await db.insert(holdings).values({
+            id: crypto.randomUUID(),
+            agentId: agent.id,
+            assetId: order.asset.id,
+            quantity: order.quantity,
+            averageBuyPrice: currentPrice,
+          });
+        }
+
+        await db.update(aiAgents).set({ cashBalance: agent.cashBalance + refund }).where(eq(aiAgents.id, agent.id));
       } else {
-        await marketSell(db, (await db.query.aiAgents.findFirst({ where: eq(aiAgents.id, order.agentId) }))!.agentId, order.asset.symbol, order.quantity, order.reasoning ?? "Limit order executed", sessionId);
-        await db.update(orders).set({ status: "executed", executedAt: new Date() }).where(eq(orders.id, order.id));
+        const proceeds = order.quantity * currentPrice;
+        await db.update(aiAgents).set({ cashBalance: agent.cashBalance + proceeds }).where(eq(aiAgents.id, agent.id));
       }
+
+      await db.update(orders).set({ status: "executed", executedAt: new Date() }).where(eq(orders.id, order.id));
       executed.push(order.id);
+    } else {
+      if (order.orderType === "limit_buy") {
+        const reservedAmount = order.quantity * (order.targetPrice ?? 0);
+        await db.update(aiAgents).set({ cashBalance: agent.cashBalance + reservedAmount }).where(eq(aiAgents.id, agent.id));
+      } else {
+        const existingHolding = await db.query.holdings.findFirst({
+          where: and(eq(holdings.agentId, agent.id), eq(holdings.assetId, order.asset.id)),
+        });
+
+        if (existingHolding) {
+          const newQuantity = existingHolding.quantity + order.quantity;
+          await db.update(holdings).set({ quantity: newQuantity, updatedAt: new Date() }).where(eq(holdings.id, existingHolding.id));
+        } else {
+          await db.insert(holdings).values({
+            id: crypto.randomUUID(),
+            agentId: agent.id,
+            assetId: order.asset.id,
+            quantity: order.quantity,
+            averageBuyPrice: order.priceAtOrder,
+          });
+        }
+      }
+
+      await db.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
     }
   }
 

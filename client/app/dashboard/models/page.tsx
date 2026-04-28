@@ -34,6 +34,8 @@ interface Agent {
   provider: string
   model: string
   cashBalance: number
+  portfolioValue: number
+  netWorth: number
   createdAt: string
 }
 
@@ -56,14 +58,14 @@ function formatCash(value: number) {
 
 function AgentCell({ agent }: { agent: Agent }) {
   const Icon = agent.parentCompany ? companyIcons[agent.parentCompany] : null
-  const pnl = agent.cashBalance - 100_000
+  const pnl = agent.netWorth - 100_000
   const pnlPositive = pnl >= 0
 
   return (
-    <div className="flex flex-col justify-between p-5">
-      <div>
-        <div className="flex items-center gap-3">
-          <div className="flex size-9 items-center justify-center rounded-md border border-border bg-background/60">
+    <div className="flex flex-col gap-3 p-4 md:p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md border border-border bg-background/60">
             {Icon ? (
               <Icon size={20} />
             ) : (
@@ -72,30 +74,36 @@ function AgentCell({ agent }: { agent: Agent }) {
               </span>
             )}
           </div>
-          <div>
-            <h3 className="font-pixel-square text-sm leading-none">{agent.agentName}</h3>
+          <div className="min-w-0">
+            <h3 className="truncate font-pixel-square text-sm leading-none">
+              {agent.agentName}
+            </h3>
             <p className="mt-1 font-pixel-square text-xs text-muted-foreground">
               {agent.parentCompany ?? agent.provider}
             </p>
           </div>
         </div>
-        <div className="mt-3">
-          <code className="font-pixel-square text-xs text-muted-foreground">{agent.model}</code>
-          {agent.parametersCount && (
-            <p className="mt-1 font-pixel-square text-xs text-muted-foreground">{agent.parametersCount}</p>
-          )}
+        <div className="shrink-0 text-right">
+          <p className="font-pixel-square text-xl tabular-nums tracking-tight md:text-2xl">
+            {formatCash(agent.netWorth)}
+          </p>
+          <span
+            className={`mt-0.5 block font-pixel-square text-[11px] tabular-nums md:text-xs ${pnlPositive ? "text-emerald-400" : "text-red-400"}`}
+          >
+            {pnlPositive ? "+" : ""}
+            {formatCash(pnl)}
+          </span>
         </div>
       </div>
-      <div className="mt-4">
-        <p className="font-pixel-square text-2xl tabular-nums tracking-tight">
-          {formatCash(agent.cashBalance)}
-        </p>
-        <span
-          className={`mt-0.5 block font-pixel-square text-xs tabular-nums ${pnlPositive ? "text-emerald-400" : "text-red-400"}`}
-        >
-          {pnlPositive ? "+" : ""}
-          {formatCash(pnl)}
-        </span>
+      <div className="flex flex-col gap-0.5">
+        <code className="truncate font-pixel-square text-[11px] text-muted-foreground md:text-xs">
+          {agent.model}
+        </code>
+        {agent.parametersCount && (
+          <p className="font-pixel-square text-[11px] text-muted-foreground md:text-xs">
+            {agent.parametersCount}
+          </p>
+        )}
       </div>
     </div>
   )
@@ -105,7 +113,7 @@ function ModelsGrid({ agents }: { agents: Agent[] }) {
   const cols = 3
   const rows = Math.max(2, Math.ceil(agents.length / cols))
 
-  const { canvasRef, rows: r, cols: c } = useGridBeam({
+  const { canvasRef } = useGridBeam({
     rows,
     cols,
     colorVariant: "colorful",
@@ -117,16 +125,20 @@ function ModelsGrid({ agents }: { agents: Agent[] }) {
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-border">
-      <GridBeamDividers rows={r} cols={c} />
-      <GridBeamCanvas ref={canvasRef} borderRadius={12} />
+      {/* GridBeam decoration is desktop-only — on mobile (1 col) the dividers
+          and animated beams have nothing to align with. */}
+      <GridBeamDividers
+        rows={rows}
+        cols={cols}
+        className="hidden md:block"
+      />
+      <GridBeamCanvas
+        ref={canvasRef}
+        borderRadius={12}
+        className="hidden md:block"
+      />
       <GridBeamContent>
-        <div
-          className="grid"
-          style={{
-            gridTemplateColumns: `repeat(${cols}, 1fr)`,
-            gridTemplateRows: `repeat(${rows}, 1fr)`,
-          }}
-        >
+        <div className="grid grid-cols-1 md:grid-cols-3">
           {agents.map((agent) => (
             <AgentCell key={agent.id} agent={agent} />
           ))}
@@ -138,20 +150,24 @@ function ModelsGrid({ agents }: { agents: Agent[] }) {
 
 function GridSkeleton() {
   return (
-    <div className="rounded-xl border border-border p-px">
-      <div className="grid grid-cols-3">
+    <div className="rounded-xl border border-border">
+      <div className="grid grid-cols-1 md:grid-cols-3">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="p-5">
-            <div className="flex items-center gap-3">
-              <Skeleton className="size-9 rounded-md" />
-              <div>
-                <Skeleton className="h-3.5 w-24" />
+          <div key={i} className="flex flex-col gap-3 p-4 md:p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-9 rounded-md" />
+                <div>
+                  <Skeleton className="h-3.5 w-24" />
+                  <Skeleton className="mt-1.5 h-3 w-14" />
+                </div>
+              </div>
+              <div className="text-right">
+                <Skeleton className="h-5 w-20" />
                 <Skeleton className="mt-1.5 h-3 w-14" />
               </div>
             </div>
-            <Skeleton className="mt-3 h-3 w-32" />
-            <Skeleton className="mt-6 h-7 w-20" />
-            <Skeleton className="mt-1.5 h-3 w-16" />
+            <Skeleton className="h-3 w-32" />
           </div>
         ))}
       </div>
@@ -200,7 +216,7 @@ export default function ModelsPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col gap-6 p-4 pt-0">
+      <div className="flex flex-1 flex-col gap-4 p-3 pt-0 sm:gap-6 sm:p-4 sm:pt-0">
         <div>
           <h1 className="font-pixel-square text-xl tracking-tight">Models</h1>
           <p className="mt-1 text-sm text-muted-foreground">
