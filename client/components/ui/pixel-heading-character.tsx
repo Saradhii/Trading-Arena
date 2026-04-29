@@ -4,8 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { cn } from "@/lib/utils"
 
-/* ─── Constants ─── */
-
 const PIXEL_FONTS = [
   "font-pixel-square",
   "font-pixel-grid",
@@ -17,7 +15,6 @@ const PIXEL_FONTS = [
 const FONT_LABELS = ["Square", "Grid", "Circle", "Triangle", "Line"] as const
 const FONT_COUNT = PIXEL_FONTS.length
 
-/** Map short name → Tailwind class for the prefix font. */
 const PREFIX_FONT_MAP: Record<string, string> = {
   square: "font-pixel-square",
   grid: "font-pixel-grid",
@@ -26,7 +23,6 @@ const PREFIX_FONT_MAP: Record<string, string> = {
   line: "font-pixel-line",
 }
 
-/** Map short name → Tailwind class for isolated (non-pixel) characters. */
 const ISOLATE_FONT_MAP: Record<string, string> = {
   sans: "font-sans",
   mono: "font-mono",
@@ -36,34 +32,18 @@ function resolveIsolateFont(value: string): string {
   return ISOLATE_FONT_MAP[value] ?? value
 }
 
-/** Golden ratio — maximises spacing between identical values in a sequence. */
 const PHI = (1 + Math.sqrt(5)) / 2
 
-/** Internal tick rate in ms — drives the stagger resolution. */
 const TICK_MS = 50
 
-/* ─── Distribution algorithms ─── */
-
-/**
- * Golden-ratio–based index.
- * Maps a sequential position to a font index such that
- * adjacent positions almost never share the same font.
- */
 function goldenBase(index: number): number {
   return Math.floor((index * PHI * FONT_COUNT) % FONT_COUNT)
 }
 
-/**
- * Deterministic pseudo-random via Knuth multiplicative hash.
- * Produces a uniform-ish distribution across FONT_COUNT for any (tick, index) pair.
- */
 function pseudoRandom(tick: number, index: number): number {
   return ((tick * 2654435761 + index * 340573321) >>> 0) % FONT_COUNT
 }
 
-/* ─── Helpers ─── */
-
-/** Recursively extract text content from React children. */
 function extractText(children: React.ReactNode): string {
   if (typeof children === "string") return children
   if (typeof children === "number") return String(children)
@@ -82,151 +62,22 @@ function extractText(children: React.ReactNode): string {
   return ""
 }
 
-/* ─── Types ─── */
-
-/**
- * Animation mode for per-character font distribution.
- *
- * | Mode       | At rest                         | On hover                                           |
- * |------------|---------------------------------|----------------------------------------------------|
- * | `uniform`  | Single font (original behavior) | Cycles one font for all characters                 |
- * | `multi`    | Golden-ratio distribution       | Staggered cascade — each char cycles independently |
- * | `wave`     | Position-based gradient         | Fonts flow left→right in a continuous wave         |
- * | `random`   | Golden-ratio distribution       | Each character scrambles independently              |
- */
 export type PixelHeadingMode = "uniform" | "multi" | "wave" | "random"
 
-/* ─── Props ─── */
-
 export interface PixelHeadingProps extends React.ComponentProps<"h1"> {
-  /**
-   * The heading level to render.
-   * @default "h1"
-   */
   as?: "h1" | "h2" | "h3" | "h4" | "h5" | "h6"
-  /**
-   * Interval in ms between font changes per character.
-   * @default 150
-   */
   cycleInterval?: number
-  /**
-   * Initial font index (0–4). Only meaningful in `uniform` mode.
-   * @default 0
-   */
   defaultFontIndex?: number
-  /**
-   * Callback fired when the active font changes (uniform mode only).
-   */
   onFontIndexChange?: (index: number) => void
-  /**
-   * Whether to show the label beneath the heading.
-   * @default true
-   */
   showLabel?: boolean
-  /**
-   * Controls how fonts are distributed across characters.
-   *
-   * - `"uniform"` — all characters share one font; cycles on hover (original)
-   * - `"multi"`   — golden-ratio distribution; staggered cascade on hover
-   * - `"wave"`    — fonts flow left-to-right in a continuous wave
-   * - `"random"`  — each character scrambles independently per tick
-   *
-   * @default "multi"
-   */
   mode?: PixelHeadingMode
-  /**
-   * Milliseconds of delay between each successive character's animation start.
-   * Creates a left→right cascade / ripple effect.
-   * Only applies in `multi`, `wave`, and `random` modes.
-   * @default 50
-   */
   staggerDelay?: number
-  /**
-   * When true the animation runs automatically on mount —
-   * no hover or focus required. Hover/focus still work to
-   * restart the cascade.
-   * @default false
-   */
   autoPlay?: boolean
-  /**
-   * Static text rendered before the animated children.
-   * Does not animate — stays locked to the font set by `prefixFont`.
-   * A trailing space is added automatically.
-   */
   prefix?: string
-  /**
-   * Which pixel font to apply to the `prefix` text.
-   * Set to `"none"` to use the inherited font (e.g. font-sans).
-   * @default "none"
-   */
   prefixFont?: "square" | "grid" | "circle" | "triangle" | "line" | "none"
-  /**
-   * Map of characters to exclude from pixel-font animation.
-   * Keys are single characters (case-sensitive).
-   * Values are font short-names ("sans" | "mono") or arbitrary
-   * Tailwind font class names (e.g. "font-serif").
-   *
-   * Isolated characters always render in their assigned font,
-   * even during hover/auto-play animation.
-   */
   isolate?: Record<string, string>
 }
 
-/* ─── Component ─── */
-
-/**
- * Interactive heading where **each character** can display a different
- * pixel font. On hover the fonts animate — the distribution algorithm
- * and cascade timing are controlled via the `mode` and `staggerDelay` props.
- *
- * @example
- * ```tsx
- * <PixelHeading mode="multi" className="text-7xl">
- *   Shadcn, expanded
- * </PixelHeading>
- * ```
- *
- * @example
- * ```tsx
- * <PixelHeading mode="wave" cycleInterval={100} staggerDelay={30}>
- *   Wave effect
- * </PixelHeading>
- * ```
- *
- * @example
- * ```tsx
- * <PixelHeading mode="multi" autoPlay>
- *   Runs on mount, no hover needed
- * </PixelHeading>
- * ```
- *
- * @example
- * ```tsx
- * <PixelHeading prefix="Shadcn," prefixFont="grid" mode="wave" autoPlay>
- *   expanded
- * </PixelHeading>
- * ```
- *
- * @example
- * ```tsx
- * <PixelHeading
- *   prefix="Shadcn,"
- *   prefixFont="grid"
- *   isolate={{ x: "sans", h: "mono" }}
- *   mode="wave"
- *   autoPlay
- * >
- *   expanded
- * </PixelHeading>
- * ```
- *
- * @example
- * ```tsx
- * <PixelHeading mode="uniform" className="text-6xl">
- *   Classic single-font cycle
- * </PixelHeading>
- * ```
- */
 export function PixelHeading({
   children,
   as: Tag = "h1",
@@ -255,17 +106,14 @@ export function PixelHeading({
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const prevUniformIndex = useRef(defaultFontIndex)
 
-  /* ── Cleanup ── */
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [])
 
-  /* ── Auto-play: start cycling on mount ── */
   useEffect(() => {
     if (!autoPlay) return
-    // Kick off the interval immediately
     setIsActive(true)
     setMsElapsed(0)
     intervalRef.current = setInterval(() => {
@@ -280,10 +128,9 @@ export function PixelHeading({
     }
   }, [autoPlay])
 
-  /* ── Compute per-character font indices ── */
   const charFonts = useMemo(() => {
     const fonts: number[] = []
-    let vi = 0 // visible-character index (skips spaces)
+    let vi = 0
 
     for (let i = 0; i < text.length; i++) {
       if (text[i] === " ") {
@@ -323,7 +170,6 @@ export function PixelHeading({
     return fonts
   }, [text, mode, msElapsed, cycleInterval, staggerDelay, defaultFontIndex])
 
-  /* ── Fire callback for uniform mode ── */
   useEffect(() => {
     if (mode !== "uniform") return
     const idx = charFonts.find((f) => f !== -1) ?? defaultFontIndex
@@ -333,7 +179,6 @@ export function PixelHeading({
     }
   }, [charFonts, mode, defaultFontIndex, onFontIndexChange])
 
-  /* ── Label text ── */
   const activeLabel = useMemo(() => {
     if (mode === "uniform") {
       const idx = charFonts.find((f) => f !== -1) ?? 0
@@ -348,9 +193,7 @@ export function PixelHeading({
     return modeLabels[mode]
   }, [mode, charFonts])
 
-  /* ── Start / stop cycling ── */
   const startCycling = useCallback(() => {
-    // Clear any existing interval first to avoid stacking
     if (intervalRef.current) {
       clearInterval(intervalRef.current)
       intervalRef.current = null
@@ -364,7 +207,6 @@ export function PixelHeading({
 
   const stopCycling = useCallback(() => {
     if (autoPlay) {
-      // Auto-play keeps running — just restart the cascade
       setIsActive(true)
       return
     }
@@ -375,7 +217,6 @@ export function PixelHeading({
     }
   }, [autoPlay])
 
-  /* ── Event handlers ── */
   const handleMouseEnter = useCallback(
     (e: React.MouseEvent<HTMLHeadingElement>) => {
       startCycling()
@@ -419,7 +260,6 @@ export function PixelHeading({
     [cycleInterval, onKeyDown]
   )
 
-  /* ── Uniform font index (for class on the Tag itself) ── */
   const uniformIdx =
     mode === "uniform"
       ? (charFonts.find((f) => f !== -1) ?? defaultFontIndex)
@@ -448,7 +288,6 @@ export function PixelHeading({
         onKeyDown={handleKeyDown}
         {...props}
       >
-        {/* ── Static prefix ── */}
         {prefix && (
           <>
             {isolate ? (
@@ -485,7 +324,6 @@ export function PixelHeading({
           </>
         )}
 
-        {/* ── Animated characters ── */}
         {mode === "uniform"
           ? children
           : text.split("").map((char, i) =>

@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, and, desc, sql, count } from "drizzle-orm";
+import { eq, and, desc, count } from "drizzle-orm";
 import { createDb } from "../db";
 import { orders, aiAgents, assets, tradingSessions } from "../db/schema";
 import { marketBuy, marketSell, limitBuy, limitSell, getOtherAgentsActions } from "../tools/trading";

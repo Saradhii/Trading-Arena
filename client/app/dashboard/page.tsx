@@ -49,8 +49,6 @@ import Qwen from "@lobehub/icons/es/Qwen"
 import Gemini from "@lobehub/icons/es/Gemini"
 import ZAI from "@lobehub/icons/es/ZAI"
 
-// ─── Types ────────────────────────────────────────────────────────
-
 interface Stats {
   totalAUM: number
   totalSessions: number
@@ -92,8 +90,6 @@ interface RecentOrdersResponse {
   orders: RecentOrder[]
 }
 
-// ─── Constants ────────────────────────────────────────────────────
-
 const companyIcons: Record<string, React.ComponentType<{ size?: number }>> = {
   OpenAI: OpenAI,
   Meta: Meta.Color,
@@ -115,17 +111,6 @@ function formatCash(value: number) {
   if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}k`
   return `$${value.toFixed(0)}`
 }
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const hours = Math.floor(diff / 3600000)
-  if (hours < 1) return "< 1h ago"
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
-// ─── Net Worth Chart ──────────────────────────────────────────────
 
 function NetWorthChart({
   leaderboard,
@@ -242,8 +227,6 @@ function NetWorthChart({
     </Card>
   )
 }
-
-// ─── Leaderboard ──────────────────────────────────────────────────
 
 function LeaderboardCard({
   leaderboard,
@@ -384,8 +367,6 @@ function LeaderboardCard({
   )
 }
 
-// ─── Asset Distribution Chart ────────────────────────────────────
-
 const ASSET_COLORS = [
   "oklch(0.7 0.15 160)",
   "oklch(0.7 0.15 250)",
@@ -494,8 +475,6 @@ function AssetDistributionChart({
   )
 }
 
-// ─── Portfolio Allocation Radar ──────────────────────────────────
-
 function AllocationChart({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
   const isMobile = useIsMobile()
 
@@ -512,7 +491,6 @@ function AllocationChart({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
 
   const tickFormatter = (label: string) => {
     if (!isMobile) return label
-    // Drop trailing parameter/variant suffixes (e.g. "GPT-OSS-120B" → "GPT-OSS")
     const parts = label.split("-")
     if (parts.length <= 2) return label
     return parts.slice(0, 2).join("-")
@@ -567,8 +545,6 @@ function AllocationChart({ leaderboard }: { leaderboard: LeaderboardEntry[] }) {
   )
 }
 
-// ─── Page ─────────────────────────────────────────────────────────
-
 export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
@@ -613,7 +589,6 @@ export default function DashboardPage() {
       </header>
 
       <div className="flex flex-1 flex-col gap-3 p-3 pt-0 sm:gap-4 sm:p-4 sm:pt-0">
-        {/* Stats Row */}
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
@@ -660,7 +635,6 @@ export default function DashboardPage() {
           </Card>
         </div>
 
-        {/* Charts Row */}
         <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
           <div className="flex flex-col">
             <LeaderboardCard leaderboard={leaderboard} />
@@ -670,7 +644,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Bottom Row */}
         <div className="grid gap-3 sm:gap-4 lg:grid-cols-5">
           <div className="lg:col-span-2">
             <AllocationChart leaderboard={leaderboard} />

@@ -1,5 +1,4 @@
-import type { LLMMessage, LLMResponse, LLMToolDef, Env, ProviderHealth } from "./types";
-import { RateLimitError } from "./types";
+import type { LLMMessage, LLMResponse, LLMToolDef, Env } from "./types";
 import { BaseLLMProvider } from "./providers/base";
 import { GroqProvider } from "./providers/groq";
 import { CerebrasProvider } from "./providers/cerebras";
@@ -26,40 +25,6 @@ const API_KEY_MAP: Record<string, keyof Env> = {
   google: "GOOGLE_API_KEY",
 };
 
-const healthCache = new Map<string, ProviderHealth>();
-const CACHE_TTL = 5 * 60 * 60 * 1000;
-
-function getProviderHealth(providerName: string): ProviderHealth | undefined {
-  const cached = healthCache.get(providerName);
-  if (!cached) return undefined;
-  if (Date.now() > cached.lastChecked + CACHE_TTL) {
-    healthCache.delete(providerName);
-    return undefined;
-  }
-  if (cached.cooldownUntil && Date.now() < cached.cooldownUntil) {
-    return cached;
-  }
-  if (cached.cooldownUntil && Date.now() >= cached.cooldownUntil) {
-    cached.healthy = true;
-    cached.cooldownUntil = 0;
-  }
-  return cached;
-}
-
-function updateHealthFromResponse(providerName: string, rateLimitRemaining?: number) {
-  const existing = healthCache.get(providerName);
-  healthCache.set(providerName, {
-    name: providerName,
-    healthy: true,
-    lastChecked: Date.now(),
-    cooldownUntil: 0,
-    rateLimitRemaining,
-  });
-  if (existing?.cooldownUntil) {
-    existing.cooldownUntil = 0;
-  }
-}
-
 export async function chatWithTools(
   env: Env,
   agentId: string,
@@ -83,12 +48,5 @@ export async function chatWithTools(
   const apiKey = env[apiKeyKey] as string;
   if (!apiKey) throw new Error(`Missing API key for ${providerName}`);
 
-  const health = getProviderHealth(providerName);
-  if (health && !health.healthy) {
-    throw new RateLimitError(providerName);
-  }
-
-  const response = await provider.chatWithTools(apiKey, model, messages, tools);
-  updateHealthFromResponse(providerName, response.rateLimitRemaining);
-  return response;
+  return await provider.chatWithTools(apiKey, model, messages, tools);
 }

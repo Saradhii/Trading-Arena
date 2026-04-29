@@ -29,15 +29,6 @@ export interface LLMResponse {
   providerUsed: string;
   modelUsed: string;
   tokensUsed?: number;
-  rateLimitRemaining?: number;
-}
-
-export interface ProviderHealth {
-  name: string;
-  healthy: boolean;
-  lastChecked: number;
-  cooldownUntil: number;
-  rateLimitRemaining?: number;
 }
 
 export class RateLimitError extends Error {

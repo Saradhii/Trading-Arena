@@ -57,9 +57,6 @@ export abstract class BaseLLMProvider {
     };
 
     const choice = data.choices[0];
-    const rateLimitRemaining = response.headers.get(
-      "x-ratelimit-remaining-requests",
-    );
 
     return {
       content: choice.message.content,
@@ -74,29 +71,6 @@ export abstract class BaseLLMProvider {
       providerUsed: this.name,
       modelUsed: data.model,
       tokensUsed: data.usage?.total_tokens,
-      rateLimitRemaining: rateLimitRemaining
-        ? parseInt(rateLimitRemaining)
-        : undefined,
     };
-  }
-
-  async healthCheck(apiKey: string, model: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/chat/completions`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...this.getHeaders(apiKey),
-        },
-        body: JSON.stringify({
-          model,
-          messages: [{ role: "user", content: "hi" }],
-          max_tokens: 1,
-        }),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
   }
 }

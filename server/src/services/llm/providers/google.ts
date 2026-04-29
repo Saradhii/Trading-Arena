@@ -126,22 +126,5 @@ export class GoogleProvider extends BaseLLMProvider {
     };
   }
 
-  async healthCheck(apiKey: string, model: string): Promise<boolean> {
-    try {
-      const url = `${this.baseUrl}/models/${encodeURIComponent(model)}:generateContent`;
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...this.getHeaders(apiKey),
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: "hi" }] }],
-        }),
-      });
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
+
 }

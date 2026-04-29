@@ -29,7 +29,6 @@ export interface HeroLiquidMetalCTAProps {
   buttonClassName?: string
 }
 
-/** LiquidMetal shader props that can be passed at the root for convenience */
 export type HeroLiquidMetalShaderOverrides = Partial<
   Pick<
     LiquidMetalProps,

@@ -125,8 +125,6 @@ function ModelsGrid({ agents }: { agents: Agent[] }) {
 
   return (
     <div className="relative overflow-hidden rounded-xl border border-border">
-      {/* GridBeam decoration is desktop-only — on mobile (1 col) the dividers
-          and animated beams have nothing to align with. */}
       <GridBeamDividers
         rows={rows}
         cols={cols}

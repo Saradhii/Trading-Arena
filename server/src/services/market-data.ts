@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Database } from "../db";
 import { assets, cryptos, stocks } from "../db/schema";
 
-export interface PriceQuote {
+interface PriceQuote {
   symbol: string;
   externalId: string;
   ok: boolean;

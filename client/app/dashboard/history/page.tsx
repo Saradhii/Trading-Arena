@@ -40,8 +40,6 @@ import Qwen from "@lobehub/icons/es/Qwen"
 import Gemini from "@lobehub/icons/es/Gemini"
 import ZAI from "@lobehub/icons/es/ZAI"
 
-// ─── Types ───────────────────────────────────────────────────────
-
 interface Order {
   id: string
   agentId: string
@@ -75,8 +73,6 @@ interface HistoryResponse {
   limit: number
   totalPages: number
 }
-
-// ─── Constants ───────────────────────────────────────────────────
 
 const companyIcons: Record<string, React.ComponentType<{ size?: number }>> = {
   OpenAI: OpenAI,
@@ -115,8 +111,6 @@ function formatDate(dateStr: string) {
 }
 
 const PAGE_SIZE = 15
-
-// ─── Page ────────────────────────────────────────────────────────
 
 export default function HistoryPage() {
   const [data, setData] = useState<HistoryResponse | null>(null)
@@ -196,7 +190,6 @@ export default function HistoryPage() {
           </p>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <div className="grid grid-cols-2 gap-2 sm:contents">
             <Select value={agentId} onValueChange={(v) => { setAgentId(v ?? ""); setPage(1) }}>
@@ -279,7 +272,6 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {/* Mobile card list */}
         <div className="flex flex-col gap-2 md:hidden">
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
@@ -365,7 +357,6 @@ export default function HistoryPage() {
           )}
         </div>
 
-        {/* Desktop table */}
         <div className="hidden rounded-lg border border-border md:block">
           <Table>
             <TableHeader>
@@ -465,7 +456,6 @@ export default function HistoryPage() {
           </Table>
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between">
             <p className="text-xs text-muted-foreground tabular-nums">
