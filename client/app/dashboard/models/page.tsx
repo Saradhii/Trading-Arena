@@ -48,6 +48,7 @@ const companyIcons: Record<string, React.ComponentType<{ size?: number }>> = {
 }
 
 function formatCash(value: number) {
+  if (value == null || isNaN(value)) return "$0";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",

@@ -12,12 +12,20 @@ agentRoutes.get("/", async (c) => {
 
   const agentsWithPortfolio = await Promise.all(
     agents.map(async (agent) => {
-      const portfolio = await getPortfolio(db, agent.agentId);
-      return {
-        ...agent,
-        portfolioValue: portfolio.portfolioValue,
-        netWorth: portfolio.netWorth,
-      };
+      try {
+        const portfolio = await getPortfolio(db, agent.agentId);
+        return {
+          ...agent,
+          portfolioValue: portfolio.portfolioValue,
+          netWorth: portfolio.netWorth,
+        };
+      } catch {
+        return {
+          ...agent,
+          portfolioValue: 0,
+          netWorth: agent.cashBalance,
+        };
+      }
     })
   );
 
