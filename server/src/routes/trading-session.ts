@@ -40,7 +40,7 @@ tradingSessionRoutes.get("/logs/summary", async (c) => {
     failed: session.sessionLogs.filter((l) => l.status === "failed").length,
     totalTrades: session.sessionLogs.reduce((sum, l) => sum + (l.toolCallsMade ?? 0), 0),
     agents: session.sessionLogs.map((l) => ({
-      agentId: l.agent?.agentId,
+      agentId: l.agent?.id,
       agentName: l.agent?.agentName,
       providerUsed: l.providerUsed,
       status: l.status,

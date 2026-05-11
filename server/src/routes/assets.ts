@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { createDb } from "../db";
 import { getMarketOverview, getAssetPrice } from "../tools/trading";
 import { assets } from "../db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 export const assetRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
 
@@ -18,27 +18,39 @@ assetRoutes.post("/", async (c) => {
     symbol: string;
     name: string;
     assetType: "crypto" | "stock";
+    externalId: string;
+    exchange?: string;
     currentPrice: number;
+    enabled?: boolean;
   }>();
 
-  if (!body.symbol || !body.name || !body.assetType || !body.currentPrice) {
-    return c.json({ error: "symbol, name, assetType, and currentPrice are required" }, 400);
+  if (!body.symbol || !body.name || !body.assetType || !body.externalId || body.currentPrice === undefined) {
+    return c.json(
+      { error: "symbol, name, assetType, externalId, and currentPrice are required" },
+      400,
+    );
   }
 
   const existing = await db.query.assets.findFirst({
-    where: eq(assets.symbol, body.symbol.toUpperCase()),
+    where: and(eq(assets.symbol, body.symbol.toUpperCase()), eq(assets.assetType, body.assetType)),
   });
   if (existing) {
-    return c.json({ error: "Asset with this symbol already exists" }, 409);
+    return c.json({ error: "Asset with this symbol and type already exists" }, 409);
   }
 
-  const asset = await db.insert(assets).values({
-    id: crypto.randomUUID(),
-    symbol: body.symbol.toUpperCase(),
-    name: body.name,
-    assetType: body.assetType,
-    currentPrice: body.currentPrice,
-  }).returning();
+  const asset = await db
+    .insert(assets)
+    .values({
+      id: crypto.randomUUID(),
+      symbol: body.symbol.toUpperCase(),
+      name: body.name,
+      assetType: body.assetType,
+      externalId: body.externalId,
+      exchange: body.exchange ?? null,
+      enabled: body.enabled ?? true,
+      currentPrice: body.currentPrice,
+    })
+    .returning();
 
   return c.json(asset[0], 201);
 });
@@ -55,7 +67,7 @@ assetRoutes.put("/:symbol/price", async (c) => {
 
   const updated = await db
     .update(assets)
-    .set({ currentPrice: price, lastUpdated: new Date() })
+    .set({ currentPrice: price })
     .where(eq(assets.id, asset.id))
     .returning();
 

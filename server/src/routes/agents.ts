@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { createDb } from "../db";
 import { eq } from "drizzle-orm";
-import { aiAgents, holdings, netWorthSnapshots, sessionLogs } from "../db/schema";
+import { agentDecisions, aiAgents, holdings, netWorthSnapshots, sessionLogs } from "../db/schema";
 import { getPortfolio, snapshotNetWorth } from "../tools/trading";
 
 export const agentRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
@@ -13,7 +13,7 @@ agentRoutes.get("/", async (c) => {
   const agentsWithPortfolio = await Promise.all(
     agents.map(async (agent) => {
       try {
-        const portfolio = await getPortfolio(db, agent.agentId);
+        const portfolio = await getPortfolio(db, agent.id);
         return {
           ...agent,
           portfolioValue: portfolio.portfolioValue,
@@ -32,10 +32,10 @@ agentRoutes.get("/", async (c) => {
   return c.json(agentsWithPortfolio);
 });
 
-agentRoutes.get("/:agentId", async (c) => {
+agentRoutes.get("/:id", async (c) => {
   const db = createDb(c.env.DB);
   const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, c.req.param("agentId")),
+    where: eq(aiAgents.id, c.req.param("id")),
   });
   if (!agent) return c.json({ error: "Agent not found" }, 404);
   return c.json(agent);
@@ -44,7 +44,7 @@ agentRoutes.get("/:agentId", async (c) => {
 agentRoutes.post("/", async (c) => {
   const db = createDb(c.env.DB);
   const body = await c.req.json<{
-    agentId: string;
+    id: string;
     agentName: string;
     provider: string;
     model: string;
@@ -54,25 +54,24 @@ agentRoutes.post("/", async (c) => {
     cashBalance?: number;
   }>();
 
-  if (!body.agentId || !body.agentName || !body.provider || !body.model) {
+  if (!body.id || !body.agentName || !body.provider || !body.model) {
     return c.json(
-      { error: "agentId, agentName, provider, and model are required" },
+      { error: "id, agentName, provider, and model are required" },
       400,
     );
   }
 
   const existing = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, body.agentId),
+    where: eq(aiAgents.id, body.id),
   });
   if (existing) {
-    return c.json({ error: "Agent with this agentId already exists" }, 409);
+    return c.json({ error: "Agent with this id already exists" }, 409);
   }
 
   const agent = await db
     .insert(aiAgents)
     .values({
-      id: crypto.randomUUID(),
-      agentId: body.agentId,
+      id: body.id,
       agentName: body.agentName,
       provider: body.provider,
       model: body.model,
@@ -86,12 +85,12 @@ agentRoutes.post("/", async (c) => {
   return c.json(agent[0], 201);
 });
 
-agentRoutes.put("/:agentId", async (c) => {
+agentRoutes.put("/:id", async (c) => {
   const db = createDb(c.env.DB);
-  const agentId = c.req.param("agentId");
+  const id = c.req.param("id");
 
   const existing = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
+    where: eq(aiAgents.id, id),
   });
   if (!existing) return c.json({ error: "Agent not found" }, 404);
 
@@ -121,38 +120,39 @@ agentRoutes.put("/:agentId", async (c) => {
   const updated = await db
     .update(aiAgents)
     .set(updates)
-    .where(eq(aiAgents.agentId, agentId))
+    .where(eq(aiAgents.id, id))
     .returning();
 
   return c.json(updated[0]);
 });
 
-agentRoutes.delete("/:agentId", async (c) => {
+agentRoutes.delete("/:id", async (c) => {
   const db = createDb(c.env.DB);
-  const agentId = c.req.param("agentId");
+  const id = c.req.param("id");
 
   const existing = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
+    where: eq(aiAgents.id, id),
   });
   if (!existing) return c.json({ error: "Agent not found" }, 404);
 
   await db.delete(holdings).where(eq(holdings.agentId, existing.id));
   await db.delete(netWorthSnapshots).where(eq(netWorthSnapshots.agentId, existing.id));
+  await db.delete(agentDecisions).where(eq(agentDecisions.agentId, existing.id));
   await db.delete(sessionLogs).where(eq(sessionLogs.agentId, existing.id));
   await db.delete(aiAgents).where(eq(aiAgents.id, existing.id));
 
   return c.json({ success: true });
 });
 
-agentRoutes.get("/:agentId/portfolio", async (c) => {
+agentRoutes.get("/:id/portfolio", async (c) => {
   const db = createDb(c.env.DB);
-  const portfolio = await getPortfolio(db, c.req.param("agentId"));
+  const portfolio = await getPortfolio(db, c.req.param("id"));
   return c.json(portfolio);
 });
 
-agentRoutes.get("/:agentId/networth", async (c) => {
+agentRoutes.get("/:id/networth", async (c) => {
   const db = createDb(c.env.DB);
-  const portfolio = await getPortfolio(db, c.req.param("agentId"));
+  const portfolio = await getPortfolio(db, c.req.param("id"));
   return c.json({
     netWorth: portfolio.netWorth,
     cashBalance: portfolio.cashBalance,
@@ -160,11 +160,11 @@ agentRoutes.get("/:agentId/networth", async (c) => {
   });
 });
 
-agentRoutes.post("/:agentId/snapshot/:sessionId", async (c) => {
+agentRoutes.post("/:id/snapshot/:sessionId", async (c) => {
   const db = createDb(c.env.DB);
   const netWorth = await snapshotNetWorth(
     db,
-    c.req.param("agentId"),
+    c.req.param("id"),
     c.req.param("sessionId"),
   );
   return c.json({ netWorth });

@@ -1,4 +1,6 @@
+import pRetry from "p-retry";
 import type { LLMMessage, LLMResponse, LLMToolDef, Env } from "./types";
+import { RateLimitError, ProviderError } from "./types";
 import { BaseLLMProvider } from "./providers/base";
 import { GroqProvider } from "./providers/groq";
 import { CerebrasProvider } from "./providers/cerebras";
@@ -34,7 +36,7 @@ export async function chatWithTools(
   const db = createDb(env.DB);
 
   const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
+    where: eq(aiAgents.id, agentId),
   });
   if (!agent) throw new Error(`Agent ${agentId} not found`);
 
@@ -48,5 +50,21 @@ export async function chatWithTools(
   const apiKey = env[apiKeyKey] as string;
   if (!apiKey) throw new Error(`Missing API key for ${providerName}`);
 
-  return await provider.chatWithTools(apiKey, model, messages, tools);
+  return await pRetry(
+    () => provider.chatWithTools(apiKey, model, messages, tools),
+    {
+      retries: 3,
+      minTimeout: 5000,
+      maxTimeout: 30000,
+      factor: 2,
+      shouldRetry: ({ error }) =>
+        error instanceof RateLimitError ||
+        (error instanceof ProviderError && error.statusCode >= 500),
+      onFailedAttempt: ({ error, attemptNumber, retriesLeft, retryDelay }) => {
+        console.warn(
+          `[llm] retry attempt=${attemptNumber} remaining=${retriesLeft} delay=${retryDelay}ms agent=${agentId} provider=${providerName} reason=${error.message}`,
+        );
+      },
+    },
+  );
 }

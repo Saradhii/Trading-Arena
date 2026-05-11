@@ -1,10 +1,10 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import type { Database } from "../db";
-import { aiAgents, assets, holdings, orders, netWorthSnapshots, tradingSessions } from "../db/schema";
+import { aiAgents, assets, holdings, orders, netWorthSnapshots } from "../db/schema";
 
 export async function getPortfolio(db: Database, agentId: string) {
   const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
+    where: eq(aiAgents.id, agentId),
   });
   if (!agent) throw new Error("Agent not found");
 
@@ -29,7 +29,7 @@ export async function getPortfolio(db: Database, agentId: string) {
   });
 
   return {
-    agentId: agent.agentId,
+    agentId: agent.id,
     agentName: agent.agentName,
     cashBalance: agent.cashBalance,
     portfolioValue,
@@ -47,32 +47,7 @@ export async function getAssetPrice(db: Database, symbol: string) {
 }
 
 export async function getMarketOverview(db: Database) {
-  return db.query.assets.findMany();
-}
-
-export async function getOtherAgentsActions(db: Database, agentId: string, sessionId: string) {
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
-  });
-  if (!agent) throw new Error("Agent not found");
-
-  const lastSession = sessionId
-    ? await db.query.tradingSessions.findFirst({
-        where: eq(tradingSessions.id, sessionId),
-      })
-    : await db.query.tradingSessions.findFirst({
-        orderBy: sql`${tradingSessions.sessionNumber} DESC`,
-      });
-
-  if (!lastSession) return [];
-
-  return db.query.orders.findMany({
-    where: and(
-      eq(orders.sessionId, lastSession.id),
-      sql`${orders.agentId} != ${agent.id}`
-    ),
-    with: { agent: true, asset: true },
-  });
+  return db.query.assets.findMany({ where: eq(assets.enabled, true) });
 }
 
 export async function marketBuy(
@@ -84,7 +59,7 @@ export async function marketBuy(
   sessionId: string
 ) {
   const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
+    where: eq(aiAgents.id, agentId),
   });
   if (!agent) throw new Error("Agent not found");
 
@@ -95,45 +70,44 @@ export async function marketBuy(
 
   const totalCost = quantity * asset.currentPrice;
   if (agent.cashBalance < totalCost) throw new Error("Insufficient funds");
-  if (agent.cashBalance - totalCost < 0) throw new Error("Net worth would go below $0");
 
-  const agentDbId = agent.id;
-
-  await db.update(aiAgents).set({ cashBalance: agent.cashBalance - totalCost }).where(eq(aiAgents.id, agentDbId));
+  await db.update(aiAgents).set({ cashBalance: agent.cashBalance - totalCost }).where(eq(aiAgents.id, agent.id));
 
   const existingHolding = await db.query.holdings.findFirst({
-    where: and(eq(holdings.agentId, agentDbId), eq(holdings.assetId, asset.id)),
+    where: and(eq(holdings.agentId, agent.id), eq(holdings.assetId, asset.id)),
   });
 
   if (existingHolding) {
     const newQuantity = existingHolding.quantity + quantity;
-    const newAvgPrice = (existingHolding.averageBuyPrice * existingHolding.quantity + asset.currentPrice * quantity) / newQuantity;
+    const newAvgPrice =
+      (existingHolding.averageBuyPrice * existingHolding.quantity + asset.currentPrice * quantity) / newQuantity;
     await db
       .update(holdings)
-      .set({ quantity: newQuantity, averageBuyPrice: newAvgPrice, updatedAt: new Date() })
+      .set({ quantity: newQuantity, averageBuyPrice: newAvgPrice })
       .where(eq(holdings.id, existingHolding.id));
   } else {
     await db.insert(holdings).values({
       id: crypto.randomUUID(),
-      agentId: agentDbId,
+      agentId: agent.id,
       assetId: asset.id,
       quantity,
       averageBuyPrice: asset.currentPrice,
     });
   }
 
-  const order = await db.insert(orders).values({
-    id: crypto.randomUUID(),
-    agentId: agentDbId,
-    assetId: asset.id,
-    sessionId,
-    orderType: "market_buy",
-    quantity,
-    priceAtOrder: asset.currentPrice,
-    status: "executed",
-    reasoning,
-    executedAt: new Date(),
-  }).returning();
+  const order = await db
+    .insert(orders)
+    .values({
+      id: crypto.randomUUID(),
+      agentId: agent.id,
+      assetId: asset.id,
+      sessionId,
+      orderType: "market_buy",
+      quantity,
+      priceAtOrder: asset.currentPrice,
+      reasoning,
+    })
+    .returning();
 
   return order;
 }
@@ -147,7 +121,7 @@ export async function marketSell(
   sessionId: string
 ) {
   const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
+    where: eq(aiAgents.id, agentId),
   });
   if (!agent) throw new Error("Agent not found");
 
@@ -169,207 +143,32 @@ export async function marketSell(
   if (newQuantity < 1e-10) {
     await db.delete(holdings).where(eq(holdings.id, holding.id));
   } else {
-    await db.update(holdings).set({ quantity: newQuantity, updatedAt: new Date() }).where(eq(holdings.id, holding.id));
+    await db.update(holdings).set({ quantity: newQuantity }).where(eq(holdings.id, holding.id));
   }
 
-  const order = await db.insert(orders).values({
-    id: crypto.randomUUID(),
-    agentId: agent.id,
-    assetId: asset.id,
-    sessionId,
-    orderType: "market_sell",
-    quantity,
-    priceAtOrder: asset.currentPrice,
-    status: "executed",
-    reasoning,
-    executedAt: new Date(),
-  }).returning();
+  const order = await db
+    .insert(orders)
+    .values({
+      id: crypto.randomUUID(),
+      agentId: agent.id,
+      assetId: asset.id,
+      sessionId,
+      orderType: "market_sell",
+      quantity,
+      priceAtOrder: asset.currentPrice,
+      reasoning,
+    })
+    .returning();
 
   return order;
-}
-
-export async function limitBuy(
-  db: Database,
-  agentId: string,
-  assetSymbol: string,
-  quantity: number,
-  targetPrice: number,
-  reasoning: string,
-  sessionId: string
-) {
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
-  });
-  if (!agent) throw new Error("Agent not found");
-
-  const asset = await db.query.assets.findFirst({
-    where: eq(assets.symbol, assetSymbol.toUpperCase()),
-  });
-  if (!asset) throw new Error(`Asset ${assetSymbol} not found`);
-
-  const reserveAmount = quantity * targetPrice;
-  if (agent.cashBalance < reserveAmount) throw new Error("Insufficient funds for limit order");
-
-  await db.update(aiAgents).set({ cashBalance: agent.cashBalance - reserveAmount }).where(eq(aiAgents.id, agent.id));
-
-  const order = await db.insert(orders).values({
-    id: crypto.randomUUID(),
-    agentId: agent.id,
-    assetId: asset.id,
-    sessionId,
-    orderType: "limit_buy",
-    quantity,
-    priceAtOrder: asset.currentPrice,
-    targetPrice,
-    status: "pending",
-    reasoning,
-  }).returning();
-
-  return order;
-}
-
-export async function limitSell(
-  db: Database,
-  agentId: string,
-  assetSymbol: string,
-  quantity: number,
-  targetPrice: number,
-  reasoning: string,
-  sessionId: string
-) {
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
-  });
-  if (!agent) throw new Error("Agent not found");
-
-  const asset = await db.query.assets.findFirst({
-    where: eq(assets.symbol, assetSymbol.toUpperCase()),
-  });
-  if (!asset) throw new Error(`Asset ${assetSymbol} not found`);
-
-  const holding = await db.query.holdings.findFirst({
-    where: and(eq(holdings.agentId, agent.id), eq(holdings.assetId, asset.id)),
-  });
-  if (!holding || holding.quantity < quantity) throw new Error("Insufficient holdings for limit order");
-
-  const newQuantity = holding.quantity - quantity;
-  if (newQuantity < 1e-10) {
-    await db.delete(holdings).where(eq(holdings.id, holding.id));
-  } else {
-    await db.update(holdings).set({ quantity: newQuantity, updatedAt: new Date() }).where(eq(holdings.id, holding.id));
-  }
-
-  const order = await db.insert(orders).values({
-    id: crypto.randomUUID(),
-    agentId: agent.id,
-    assetId: asset.id,
-    sessionId,
-    orderType: "limit_sell",
-    quantity,
-    priceAtOrder: asset.currentPrice,
-    targetPrice,
-    status: "pending",
-    reasoning,
-  }).returning();
-
-  return order;
-}
-
-export async function executePendingLimitOrders(db: Database, sessionId: string) {
-  const pendingOrders = await db.query.orders.findMany({
-    where: and(eq(orders.status, "pending"), eq(orders.sessionId, sessionId)),
-    with: { asset: true, agent: true },
-  });
-
-  const executed: string[] = [];
-
-  for (const order of pendingOrders) {
-    const currentPrice = order.asset.currentPrice;
-    const agent = order.agent;
-    let shouldExecute = false;
-
-    if (order.orderType === "limit_buy" && currentPrice <= (order.targetPrice ?? 0)) {
-      shouldExecute = true;
-    }
-    if (order.orderType === "limit_sell" && currentPrice >= (order.targetPrice ?? Infinity)) {
-      shouldExecute = true;
-    }
-
-    if (shouldExecute) {
-      if (order.orderType === "limit_buy") {
-        const executionCost = order.quantity * currentPrice;
-        const reservedAmount = order.quantity * (order.targetPrice ?? currentPrice);
-        const refund = reservedAmount - executionCost;
-
-        const existingHolding = await db.query.holdings.findFirst({
-          where: and(eq(holdings.agentId, agent.id), eq(holdings.assetId, order.asset.id)),
-        });
-
-        if (existingHolding) {
-          const newQuantity = existingHolding.quantity + order.quantity;
-          const newAvgPrice = (existingHolding.averageBuyPrice * existingHolding.quantity + currentPrice * order.quantity) / newQuantity;
-          await db
-            .update(holdings)
-            .set({ quantity: newQuantity, averageBuyPrice: newAvgPrice, updatedAt: new Date() })
-            .where(eq(holdings.id, existingHolding.id));
-        } else {
-          await db.insert(holdings).values({
-            id: crypto.randomUUID(),
-            agentId: agent.id,
-            assetId: order.asset.id,
-            quantity: order.quantity,
-            averageBuyPrice: currentPrice,
-          });
-        }
-
-        await db.update(aiAgents).set({ cashBalance: agent.cashBalance + refund }).where(eq(aiAgents.id, agent.id));
-      } else {
-        const proceeds = order.quantity * currentPrice;
-        await db.update(aiAgents).set({ cashBalance: agent.cashBalance + proceeds }).where(eq(aiAgents.id, agent.id));
-      }
-
-      await db.update(orders).set({ status: "executed", executedAt: new Date() }).where(eq(orders.id, order.id));
-      executed.push(order.id);
-    } else {
-      if (order.orderType === "limit_buy") {
-        const reservedAmount = order.quantity * (order.targetPrice ?? 0);
-        await db.update(aiAgents).set({ cashBalance: agent.cashBalance + reservedAmount }).where(eq(aiAgents.id, agent.id));
-      } else {
-        const existingHolding = await db.query.holdings.findFirst({
-          where: and(eq(holdings.agentId, agent.id), eq(holdings.assetId, order.asset.id)),
-        });
-
-        if (existingHolding) {
-          const newQuantity = existingHolding.quantity + order.quantity;
-          await db.update(holdings).set({ quantity: newQuantity, updatedAt: new Date() }).where(eq(holdings.id, existingHolding.id));
-        } else {
-          await db.insert(holdings).values({
-            id: crypto.randomUUID(),
-            agentId: agent.id,
-            assetId: order.asset.id,
-            quantity: order.quantity,
-            averageBuyPrice: order.priceAtOrder,
-          });
-        }
-      }
-
-      await db.update(orders).set({ status: "cancelled" }).where(eq(orders.id, order.id));
-    }
-  }
-
-  return { executed: executed.length, orderIds: executed };
 }
 
 export async function snapshotNetWorth(db: Database, agentId: string, sessionId: string) {
   const portfolio = await getPortfolio(db, agentId);
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agentId),
-  });
-  if (!agent) throw new Error("Agent not found");
 
   await db.insert(netWorthSnapshots).values({
     id: crypto.randomUUID(),
-    agentId: agent.id,
+    agentId,
     sessionId,
     cashBalance: portfolio.cashBalance,
     portfolioValue: portfolio.portfolioValue,

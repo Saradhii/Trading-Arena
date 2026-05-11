@@ -12,9 +12,9 @@ leaderboardRoutes.get("/", async (c) => {
 
   const leaderboard = await Promise.all(
     agents.map(async (agent) => {
-      const portfolio = await getPortfolio(db, agent.agentId);
+      const portfolio = await getPortfolio(db, agent.id);
       return {
-        agentId: agent.agentId,
+        id: agent.id,
         agentName: agent.agentName,
         parentCompany: agent.parentCompany,
         cashBalance: portfolio.cashBalance,
@@ -32,10 +32,10 @@ leaderboardRoutes.get("/", async (c) => {
   return c.json(leaderboard);
 });
 
-leaderboardRoutes.get("/history/:agentId", async (c) => {
+leaderboardRoutes.get("/history/:id", async (c) => {
   const db = createDb(c.env.DB);
   const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, c.req.param("agentId")),
+    where: eq(aiAgents.id, c.req.param("id")),
   });
   if (!agent) return c.json({ error: "Agent not found" }, 404);
 

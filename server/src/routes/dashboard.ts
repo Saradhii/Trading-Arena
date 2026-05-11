@@ -12,11 +12,11 @@ dashboardRoutes.get("/stats", async (c) => {
   const [agents, sessions, tradeCountResult] = await Promise.all([
     db.query.aiAgents.findMany(),
     db.query.tradingSessions.findMany(),
-    db.select({ count: sql<number>`count(*)` }).from(orders).where(eq(orders.status, "executed")),
+    db.select({ count: sql<number>`count(*)` }).from(orders),
   ]);
 
   const portfolios = await Promise.all(
-    agents.map((a) => getPortfolio(db, a.agentId))
+    agents.map((a) => getPortfolio(db, a.id))
   );
 
   const totalAUM = portfolios.reduce((sum, p) => sum + p.netWorth, 0);

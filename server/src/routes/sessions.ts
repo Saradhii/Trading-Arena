@@ -2,7 +2,6 @@ import { Hono } from "hono";
 import { createDb } from "../db";
 import { tradingSessions, orders } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
-import { executePendingLimitOrders } from "../tools/trading";
 
 export const sessionRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
 
@@ -52,16 +51,3 @@ sessionRoutes.post("/", async (c) => {
   return c.json(session[0], 201);
 });
 
-sessionRoutes.post("/:sessionNumber/end", async (c) => {
-  const db = createDb(c.env.DB);
-  const session = await db.query.tradingSessions.findFirst({
-    where: eq(tradingSessions.sessionNumber, Number(c.req.param("sessionNumber"))),
-  });
-  if (!session) return c.json({ error: "Session not found" }, 404);
-
-  const result = await executePendingLimitOrders(db, session.id);
-
-  await db.update(tradingSessions).set({ status: "completed", completedAt: new Date() }).where(eq(tradingSessions.id, session.id));
-
-  return c.json({ status: "completed", limitOrdersExecuted: result.executed });
-});

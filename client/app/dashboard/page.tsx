@@ -57,7 +57,7 @@ interface Stats {
 }
 
 interface LeaderboardEntry {
-  agentId: string
+  id: string
   agentName: string
   parentCompany: string
   cashBalance: number
@@ -125,7 +125,7 @@ function NetWorthChart({
 
     Promise.all(
       leaderboard.map((agent) =>
-        fetch(`/api/leaderboard/history/${agent.agentId}`)
+        fetch(`/api/leaderboard/history/${agent.id}`)
           .then((r) => r.json())
           .then((snapshots: NetWorthSnapshot[]) => ({
             agentName: agent.agentName,
@@ -206,7 +206,7 @@ function NetWorthChart({
             />
             {leaderboard.map((agent) => (
               <Line
-                key={agent.agentId}
+                key={agent.id}
                 dataKey={agent.agentName}
                 type="monotone"
                 stroke={`var(--color-${agent.agentName.replace(/[\s.]/g, "-")})`}
@@ -292,7 +292,7 @@ function LeaderboardCard({
 
             if (isMobile) {
               return (
-                <Fragment key={agent.agentId}>
+                <Fragment key={agent.id}>
                   <div className="flex items-center px-2 font-pixel-square text-xs text-muted-foreground">
                     #{agent.rank}
                   </div>
@@ -328,7 +328,7 @@ function LeaderboardCard({
             }
 
             return (
-              <Fragment key={agent.agentId}>
+              <Fragment key={agent.id}>
                 <div className="flex items-center px-4 font-pixel-square text-sm text-muted-foreground">
                   #{agent.rank}
                 </div>

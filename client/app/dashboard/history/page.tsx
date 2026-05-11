@@ -46,14 +46,12 @@ interface Order {
   assetId: string
   sessionId: string
   orderType: string
-  status: string
   quantity: number
   priceAtOrder: number
-  targetPrice: number | null
   reasoning: string | null
   createdAt: string
   executedAt: string | null
-  agent: { agentId: string; agentName: string; parentCompany: string | null }
+  agent: { id: string; agentName: string; parentCompany: string | null }
   asset: { id: string; symbol: string; name: string; assetType: string }
   session: { id: string; sessionNumber: number }
 }
@@ -63,7 +61,6 @@ interface Filters {
   assets: { assetId: string; symbol: string; name: string }[]
   sessions: { id: string; sessionNumber: number }[]
   orderTypes: string[]
-  statuses: string[]
 }
 
 interface HistoryResponse {
@@ -85,14 +82,6 @@ const companyIcons: Record<string, React.ComponentType<{ size?: number }>> = {
 const ORDER_TYPE_LABELS: Record<string, string> = {
   market_buy: "Market Buy",
   market_sell: "Market Sell",
-  limit_buy: "Limit Buy",
-  limit_sell: "Limit Sell",
-}
-
-const STATUS_STYLES: Record<string, string> = {
-  executed: "bg-emerald-500/10 text-emerald-400",
-  pending: "bg-amber-500/10 text-amber-400",
-  cancelled: "bg-red-500/10 text-red-400",
 }
 
 function formatCash(value: number) {
@@ -121,7 +110,6 @@ export default function HistoryPage() {
   const [agentId, setAgentId] = useState("")
   const [assetId, setAssetId] = useState("")
   const [orderType, setOrderType] = useState("")
-  const [status, setStatus] = useState("")
   const [sessionId, setSessionId] = useState("")
 
   useEffect(() => {
@@ -138,14 +126,13 @@ export default function HistoryPage() {
     if (agentId) params.set("agentId", agentId)
     if (assetId) params.set("assetId", assetId)
     if (orderType) params.set("orderType", orderType)
-    if (status) params.set("status", status)
     if (sessionId) params.set("sessionId", sessionId)
 
     fetch(`/api/orders/history?${params}`)
       .then((r) => r.json())
       .then(setData)
       .finally(() => setLoading(false))
-  }, [page, agentId, assetId, orderType, status, sessionId])
+  }, [page, agentId, assetId, orderType, sessionId])
 
   useEffect(() => {
     fetchOrders()
@@ -155,12 +142,11 @@ export default function HistoryPage() {
     setAgentId("")
     setAssetId("")
     setOrderType("")
-    setStatus("")
     setSessionId("")
     setPage(1)
   }
 
-  const hasActiveFilters = agentId || assetId || orderType || status || sessionId
+  const hasActiveFilters = agentId || assetId || orderType || sessionId
   const totalPages = data?.totalPages ?? 1
 
   return (
@@ -231,19 +217,6 @@ export default function HistoryPage() {
               </SelectContent>
             </Select>
 
-            <Select value={status} onValueChange={(v) => { setStatus(v ?? ""); setPage(1) }}>
-              <SelectTrigger size="sm" className="w-full sm:w-fit">
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                {filters?.statuses.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
             <Select value={sessionId} onValueChange={(v) => { setSessionId(v ?? ""); setPage(1) }}>
               <SelectTrigger size="sm" className="col-span-2 w-full sm:col-span-1 sm:w-fit">
                 <SelectValue placeholder="All Sessions" />
@@ -299,7 +272,7 @@ export default function HistoryPage() {
                   key={order.id}
                   className="flex flex-col gap-2 rounded-lg border border-border bg-card/40 p-3"
                 >
-                  <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-start gap-2">
                     <div className="flex min-w-0 items-center gap-2">
                       <div className="flex size-6 shrink-0 items-center justify-center rounded border border-border bg-background/60">
                         {Icon ? <Icon size={14} /> : null}
@@ -311,12 +284,6 @@ export default function HistoryPage() {
                         </span>
                       </div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className={`shrink-0 border-none text-[10px] px-1.5 py-0 ${STATUS_STYLES[order.status] ?? ""}`}
-                    >
-                      {order.status}
-                    </Badge>
                   </div>
 
                   <div className="flex items-center justify-between gap-2">
@@ -368,7 +335,6 @@ export default function HistoryPage() {
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-widest">Qty</TableHead>
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-widest">Price</TableHead>
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-widest">Total</TableHead>
-                <TableHead className="font-pixel-square text-[10px] uppercase tracking-widest">Status</TableHead>
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-widest">Reasoning</TableHead>
               </TableRow>
             </TableHeader>
@@ -376,7 +342,7 @@ export default function HistoryPage() {
               {loading ? (
                 Array.from({ length: 8 }).map((_, i) => (
                   <TableRow key={i}>
-                    {Array.from({ length: 9 }).map((_, j) => (
+                    {Array.from({ length: 8 }).map((_, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-full" />
                       </TableCell>
@@ -385,7 +351,7 @@ export default function HistoryPage() {
                 ))
               ) : data?.orders.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-32 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     No orders found
                   </TableCell>
                 </TableRow>
@@ -434,14 +400,6 @@ export default function HistoryPage() {
                       </TableCell>
                       <TableCell className="font-mono text-sm tabular-nums">
                         {formatCash(total)}
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`border-none text-[10px] px-1.5 py-0 ${STATUS_STYLES[order.status] ?? ""}`}
-                        >
-                          {order.status}
-                        </Badge>
                       </TableCell>
                       <TableCell className="max-w-[280px]">
                         <p className="line-clamp-2 text-xs leading-relaxed text-muted-foreground">

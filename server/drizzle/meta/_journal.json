@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1776831269657,
-      "tag": "0000_fluffy_polaris",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1776882335694,
-      "tag": "0001_legal_carlie_cooper",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1777114136986,
-      "tag": "0002_organic_sphinx",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1777142306610,
-      "tag": "0003_low_scalphunter",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1777146982146,
-      "tag": "0004_left_carnage",
+      "when": 1778236513360,
+      "tag": "0000_nifty_hiroim",
       "breakpoints": true
     }
   ]

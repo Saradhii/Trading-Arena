@@ -1,7 +1,7 @@
 import { eq, desc } from "drizzle-orm";
 import { createDb } from "../db";
 import type { Database } from "../db";
-import { aiAgents, tradingSessions, sessionLogs } from "../db/schema";
+import { agentDecisions, aiAgents, tradingSessions, sessionLogs } from "../db/schema";
 import { getPortfolio, getMarketOverview, snapshotNetWorth } from "../tools/trading";
 import { chatWithTools } from "../services/llm";
 import { tradingTools } from "../services/llm/tools";
@@ -125,7 +125,7 @@ async function runAgentSession(
   const startTime = Date.now();
 
   const result: AgentSessionResult = {
-    agentId: agent.agentId,
+    agentId: agent.id,
     agentName: agent.agentName,
     status: "success",
     decisionType: "hold",
@@ -138,7 +138,7 @@ async function runAgentSession(
   };
 
   try {
-    const portfolio = await getPortfolio(db, agent.agentId);
+    const portfolio = await getPortfolio(db, agent.id);
     const market = await getMarketOverview(db);
 
     const systemPrompt = buildSystemPrompt(agent.agentName, portfolio, market);
@@ -148,7 +148,7 @@ async function runAgentSession(
       { role: "user", content: "Review the portfolio and market. Always include a short text rationale describing your decision (trade or hold). Trade only if you see a thesis that justifies the risk; otherwise hold." },
     ];
 
-    const response = await chatWithTools(env, agent.agentId, messages, tradingTools);
+    const response = await chatWithTools(env, agent.id, messages, tradingTools);
 
     result.providerUsed = response.providerUsed;
     result.modelUsed = response.modelUsed;
@@ -159,7 +159,7 @@ async function runAgentSession(
       const execResults = await executeToolCalls(
         db,
         response.toolCalls,
-        agent.agentId,
+        agent.id,
         sessionId,
       );
 
@@ -177,45 +177,48 @@ async function runAgentSession(
       result.decisionType = "hold";
     }
 
-    await snapshotNetWorth(db, agent.agentId, sessionId);
+    await snapshotNetWorth(db, agent.id, sessionId);
   } catch (err) {
     result.decisionType = "error";
     if (err instanceof RateLimitError) {
       result.status = "skipped";
       result.failureReason = "rate_limited";
       console.warn(
-        `[trading-session] rate_limited agent=${agent.agentId} provider=${agent.provider} model=${agent.model} session=${sessionId} retryAfter=${err.retryAfter ?? "n/a"}`,
+        `[trading-session] rate_limited agent=${agent.id} provider=${agent.provider} model=${agent.model} session=${sessionId} retryAfter=${err.retryAfter ?? "n/a"}`,
       );
     } else if (err instanceof ProviderError) {
       result.status = "failed";
       result.failureReason = `provider_error_${err.statusCode}`;
       console.error(
-        `[trading-session] provider_error agent=${agent.agentId} provider=${agent.provider} model=${agent.model} session=${sessionId} status=${err.statusCode}`,
+        `[trading-session] provider_error agent=${agent.id} provider=${agent.provider} model=${agent.model} session=${sessionId} status=${err.statusCode}`,
       );
     } else {
       result.status = "failed";
       result.failureReason = err instanceof Error ? err.message : "unknown_error";
       console.error(
-        `[trading-session] unknown_error agent=${agent.agentId} provider=${agent.provider} model=${agent.model} session=${sessionId} message=${result.failureReason}`,
+        `[trading-session] unknown_error agent=${agent.id} provider=${agent.provider} model=${agent.model} session=${sessionId} message=${result.failureReason}`,
       );
     }
   }
 
   result.latencyMs = Date.now() - startTime;
 
-  const agentDbRecord = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.agentId, agent.agentId),
+  await db.insert(agentDecisions).values({
+    id: crypto.randomUUID(),
+    sessionId,
+    agentId: agent.id,
+    decisionType: result.decisionType,
+    reasoning: result.assistantText,
   });
 
   await db.insert(sessionLogs).values({
+    id: crypto.randomUUID(),
     sessionId,
-    agentId: agentDbRecord!.id,
+    agentId: agent.id,
     providerUsed: result.providerUsed,
     modelUsed: result.modelUsed,
     status: result.status,
     failureReason: result.failureReason ?? null,
-    decisionType: result.decisionType,
-    assistantText: result.assistantText,
     toolCallsMade: result.trades,
     tokensUsed: result.tokensUsed ?? null,
     latencyMs: result.latencyMs,

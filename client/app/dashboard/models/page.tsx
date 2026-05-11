@@ -26,7 +26,6 @@ import ZAI from "@lobehub/icons/es/ZAI"
 
 interface Agent {
   id: string
-  agentId: string
   agentName: string
   parametersCount: string | null
   releaseDate: string | null
