@@ -1,12 +1,67 @@
 import { eq, and } from "drizzle-orm";
 import type { Database } from "../db";
 import { aiAgents, assets, holdings, orders, netWorthSnapshots } from "../db/schema";
+import { getAgentByIdOrThrow, getAssetBySymbolOrThrow } from "../helpers";
+
+type Agent = typeof aiAgents.$inferSelect;
+type Asset = typeof assets.$inferSelect;
+
+async function createOrder(
+  db: Database,
+  agent: Agent,
+  asset: Asset,
+  sessionId: string,
+  orderType: "market_buy" | "market_sell",
+  quantity: number,
+  reasoning: string,
+) {
+  const [order] = await db
+    .insert(orders)
+    .values({
+      id: crypto.randomUUID(),
+      agentId: agent.id,
+      assetId: asset.id,
+      sessionId,
+      orderType,
+      quantity,
+      priceAtOrder: asset.currentPrice,
+      reasoning,
+    })
+    .returning();
+  return order;
+}
+
+export async function getAgentsWithPortfolios(db: Database) {
+  const agents = await db.query.aiAgents.findMany();
+
+  const agentsWithPortfolio = await Promise.all(
+    agents.map(async (agent) => {
+      try {
+        const portfolio = await getPortfolio(db, agent.id);
+        return {
+          ...agent,
+          portfolioValue: portfolio.portfolioValue,
+          netWorth: portfolio.netWorth,
+          cashBalance: portfolio.cashBalance,
+          holdings: portfolio.holdings,
+        };
+      } catch {
+        return {
+          ...agent,
+          portfolioValue: 0,
+          netWorth: agent.cashBalance,
+          cashBalance: agent.cashBalance,
+          holdings: [],
+        };
+      }
+    })
+  );
+
+  return agentsWithPortfolio;
+}
 
 export async function getPortfolio(db: Database, agentId: string) {
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, agentId),
-  });
-  if (!agent) throw new Error("Agent not found");
+  const agent = await getAgentByIdOrThrow(db, agentId);
 
   const agentHoldings = await db.query.holdings.findMany({
     where: eq(holdings.agentId, agent.id),
@@ -39,10 +94,7 @@ export async function getPortfolio(db: Database, agentId: string) {
 }
 
 export async function getAssetPrice(db: Database, symbol: string) {
-  const asset = await db.query.assets.findFirst({
-    where: eq(assets.symbol, symbol.toUpperCase()),
-  });
-  if (!asset) throw new Error(`Asset ${symbol} not found`);
+  const asset = await getAssetBySymbolOrThrow(db, symbol);
   return asset;
 }
 
@@ -58,15 +110,8 @@ export async function marketBuy(
   reasoning: string,
   sessionId: string
 ) {
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, agentId),
-  });
-  if (!agent) throw new Error("Agent not found");
-
-  const asset = await db.query.assets.findFirst({
-    where: eq(assets.symbol, assetSymbol.toUpperCase()),
-  });
-  if (!asset) throw new Error(`Asset ${assetSymbol} not found`);
+  const agent = await getAgentByIdOrThrow(db, agentId);
+  const asset = await getAssetBySymbolOrThrow(db, assetSymbol);
 
   const totalCost = quantity * asset.currentPrice;
   if (agent.cashBalance < totalCost) throw new Error("Insufficient funds");
@@ -95,21 +140,7 @@ export async function marketBuy(
     });
   }
 
-  const order = await db
-    .insert(orders)
-    .values({
-      id: crypto.randomUUID(),
-      agentId: agent.id,
-      assetId: asset.id,
-      sessionId,
-      orderType: "market_buy",
-      quantity,
-      priceAtOrder: asset.currentPrice,
-      reasoning,
-    })
-    .returning();
-
-  return order;
+  return createOrder(db, agent, asset, sessionId, "market_buy", quantity, reasoning);
 }
 
 export async function marketSell(
@@ -120,15 +151,8 @@ export async function marketSell(
   reasoning: string,
   sessionId: string
 ) {
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, agentId),
-  });
-  if (!agent) throw new Error("Agent not found");
-
-  const asset = await db.query.assets.findFirst({
-    where: eq(assets.symbol, assetSymbol.toUpperCase()),
-  });
-  if (!asset) throw new Error(`Asset ${assetSymbol} not found`);
+  const agent = await getAgentByIdOrThrow(db, agentId);
+  const asset = await getAssetBySymbolOrThrow(db, assetSymbol);
 
   const holding = await db.query.holdings.findFirst({
     where: and(eq(holdings.agentId, agent.id), eq(holdings.assetId, asset.id)),
@@ -146,21 +170,7 @@ export async function marketSell(
     await db.update(holdings).set({ quantity: newQuantity }).where(eq(holdings.id, holding.id));
   }
 
-  const order = await db
-    .insert(orders)
-    .values({
-      id: crypto.randomUUID(),
-      agentId: agent.id,
-      assetId: asset.id,
-      sessionId,
-      orderType: "market_sell",
-      quantity,
-      priceAtOrder: asset.currentPrice,
-      reasoning,
-    })
-    .returning();
-
-  return order;
+  return createOrder(db, agent, asset, sessionId, "market_sell", quantity, reasoning);
 }
 
 export async function snapshotNetWorth(db: Database, agentId: string, sessionId: string) {

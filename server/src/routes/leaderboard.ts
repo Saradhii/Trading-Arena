@@ -1,28 +1,24 @@
 import { Hono } from "hono";
-import { createDb } from "../db";
-import { netWorthSnapshots, aiAgents } from "../db/schema";
+import { netWorthSnapshots } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
-import { getPortfolio } from "../tools/trading";
+import { getAgentsWithPortfolios } from "../tools/trading";
+import { AppType } from "../middleware";
+import { getAgentById, ERRORS } from "../helpers";
 
-export const leaderboardRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
+export const leaderboardRoutes = new Hono<AppType>();
 
 leaderboardRoutes.get("/", async (c) => {
-  const db = createDb(c.env.DB);
-  const agents = await db.query.aiAgents.findMany();
+  const db = c.get("db");
+  const agentsWithPortfolio = await getAgentsWithPortfolios(db);
 
-  const leaderboard = await Promise.all(
-    agents.map(async (agent) => {
-      const portfolio = await getPortfolio(db, agent.id);
-      return {
-        id: agent.id,
-        agentName: agent.agentName,
-        parentCompany: agent.parentCompany,
-        cashBalance: portfolio.cashBalance,
-        portfolioValue: portfolio.portfolioValue,
-        netWorth: portfolio.netWorth,
-      };
-    })
-  );
+  const leaderboard = agentsWithPortfolio.map((agent) => ({
+    id: agent.id,
+    agentName: agent.agentName,
+    parentCompany: agent.parentCompany,
+    cashBalance: agent.cashBalance,
+    portfolioValue: agent.portfolioValue,
+    netWorth: agent.netWorth,
+  }));
 
   leaderboard.sort((a, b) => b.netWorth - a.netWorth);
   leaderboard.forEach((entry, i) => {
@@ -33,11 +29,9 @@ leaderboardRoutes.get("/", async (c) => {
 });
 
 leaderboardRoutes.get("/history/:id", async (c) => {
-  const db = createDb(c.env.DB);
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, c.req.param("id")),
-  });
-  if (!agent) return c.json({ error: "Agent not found" }, 404);
+  const db = c.get("db");
+  const agent = await getAgentById(db, c.req.param("id"));
+  if (!agent) return c.json({ error: ERRORS.AGENT_NOT_FOUND }, 404);
 
   const snapshots = await db.query.netWorthSnapshots.findMany({
     where: eq(netWorthSnapshots.agentId, agent.id),

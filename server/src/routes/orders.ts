@@ -1,27 +1,27 @@
 import { Hono } from "hono";
 import { eq, and, desc, count } from "drizzle-orm";
-import { createDb } from "../db";
 import { orders, aiAgents, assets, tradingSessions } from "../db/schema";
 import { marketBuy, marketSell } from "../tools/trading";
+import { AppType } from "../middleware";
 
-export const orderRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
+export const orderRoutes = new Hono<AppType>();
 
 orderRoutes.post("/market-buy", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const body = await c.req.json<{ agentId: string; assetSymbol: string; quantity: number; reasoning: string; sessionId: string }>();
   const order = await marketBuy(db, body.agentId, body.assetSymbol, body.quantity, body.reasoning, body.sessionId);
   return c.json(order, 201);
 });
 
 orderRoutes.post("/market-sell", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const body = await c.req.json<{ agentId: string; assetSymbol: string; quantity: number; reasoning: string; sessionId: string }>();
   const order = await marketSell(db, body.agentId, body.assetSymbol, body.quantity, body.reasoning, body.sessionId);
   return c.json(order, 201);
 });
 
 orderRoutes.get("/history", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
 
   const page = Math.max(1, parseInt(c.req.query("page") ?? "1", 10));
   const limit = Math.min(100, Math.max(1, parseInt(c.req.query("limit") ?? "20", 10)));
@@ -70,7 +70,7 @@ orderRoutes.get("/history", async (c) => {
 });
 
 orderRoutes.get("/filters", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
 
   const [agentRows, assetRows, sessionRows] = await Promise.all([
     db

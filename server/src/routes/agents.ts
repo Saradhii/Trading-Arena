@@ -1,48 +1,27 @@
 import { Hono } from "hono";
-import { createDb } from "../db";
 import { eq } from "drizzle-orm";
 import { agentDecisions, aiAgents, holdings, netWorthSnapshots, sessionLogs } from "../db/schema";
-import { getPortfolio, snapshotNetWorth } from "../tools/trading";
+import { getPortfolio, snapshotNetWorth, getAgentsWithPortfolios } from "../tools/trading";
+import { AppType } from "../middleware";
+import { getAgentById, ERRORS } from "../helpers";
 
-export const agentRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
+export const agentRoutes = new Hono<AppType>();
 
 agentRoutes.get("/", async (c) => {
-  const db = createDb(c.env.DB);
-  const agents = await db.query.aiAgents.findMany();
-
-  const agentsWithPortfolio = await Promise.all(
-    agents.map(async (agent) => {
-      try {
-        const portfolio = await getPortfolio(db, agent.id);
-        return {
-          ...agent,
-          portfolioValue: portfolio.portfolioValue,
-          netWorth: portfolio.netWorth,
-        };
-      } catch {
-        return {
-          ...agent,
-          portfolioValue: 0,
-          netWorth: agent.cashBalance,
-        };
-      }
-    })
-  );
-
+  const db = c.get("db");
+  const agentsWithPortfolio = await getAgentsWithPortfolios(db);
   return c.json(agentsWithPortfolio);
 });
 
 agentRoutes.get("/:id", async (c) => {
-  const db = createDb(c.env.DB);
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, c.req.param("id")),
-  });
-  if (!agent) return c.json({ error: "Agent not found" }, 404);
+  const db = c.get("db");
+  const agent = await getAgentById(db, c.req.param("id"));
+  if (!agent) return c.json({ error: ERRORS.AGENT_NOT_FOUND }, 404);
   return c.json(agent);
 });
 
 agentRoutes.post("/", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const body = await c.req.json<{
     id: string;
     agentName: string;
@@ -61,9 +40,7 @@ agentRoutes.post("/", async (c) => {
     );
   }
 
-  const existing = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, body.id),
-  });
+  const existing = await getAgentById(db, body.id);
   if (existing) {
     return c.json({ error: "Agent with this id already exists" }, 409);
   }
@@ -86,13 +63,11 @@ agentRoutes.post("/", async (c) => {
 });
 
 agentRoutes.put("/:id", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const id = c.req.param("id");
 
-  const existing = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, id),
-  });
-  if (!existing) return c.json({ error: "Agent not found" }, 404);
+  const existing = await getAgentById(db, id);
+  if (!existing) return c.json({ error: ERRORS.AGENT_NOT_FOUND }, 404);
 
   const body = await c.req.json<{
     agentName?: string;
@@ -127,13 +102,11 @@ agentRoutes.put("/:id", async (c) => {
 });
 
 agentRoutes.delete("/:id", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const id = c.req.param("id");
 
-  const existing = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, id),
-  });
-  if (!existing) return c.json({ error: "Agent not found" }, 404);
+  const existing = await getAgentById(db, id);
+  if (!existing) return c.json({ error: ERRORS.AGENT_NOT_FOUND }, 404);
 
   await db.delete(holdings).where(eq(holdings.agentId, existing.id));
   await db.delete(netWorthSnapshots).where(eq(netWorthSnapshots.agentId, existing.id));
@@ -145,13 +118,13 @@ agentRoutes.delete("/:id", async (c) => {
 });
 
 agentRoutes.get("/:id/portfolio", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const portfolio = await getPortfolio(db, c.req.param("id"));
   return c.json(portfolio);
 });
 
 agentRoutes.get("/:id/networth", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const portfolio = await getPortfolio(db, c.req.param("id"));
   return c.json({
     netWorth: portfolio.netWorth,
@@ -161,7 +134,7 @@ agentRoutes.get("/:id/networth", async (c) => {
 });
 
 agentRoutes.post("/:id/snapshot/:sessionId", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const netWorth = await snapshotNetWorth(
     db,
     c.req.param("id"),

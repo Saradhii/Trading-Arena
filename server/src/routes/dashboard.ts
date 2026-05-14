@@ -1,27 +1,23 @@
 import { Hono } from "hono";
-import { createDb } from "../db";
 import { orders, tradingSessions } from "../db/schema";
 import { sql, desc, eq } from "drizzle-orm";
-import { getPortfolio } from "../tools/trading";
+import { getAgentsWithPortfolios } from "../tools/trading";
+import { AppType } from "../middleware";
 
-export const dashboardRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
+export const dashboardRoutes = new Hono<AppType>();
 
 dashboardRoutes.get("/stats", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
 
-  const [agents, sessions, tradeCountResult] = await Promise.all([
-    db.query.aiAgents.findMany(),
+  const [agentsWithPortfolio, sessions, tradeCountResult] = await Promise.all([
+    getAgentsWithPortfolios(db),
     db.query.tradingSessions.findMany(),
     db.select({ count: sql<number>`count(*)` }).from(orders),
   ]);
 
-  const portfolios = await Promise.all(
-    agents.map((a) => getPortfolio(db, a.id))
-  );
-
-  const totalAUM = portfolios.reduce((sum, p) => sum + p.netWorth, 0);
-  const best = portfolios.length > 0
-    ? portfolios.reduce((a, b) => (a.netWorth > b.netWorth ? a : b))
+  const totalAUM = agentsWithPortfolio.reduce((sum, a) => sum + a.netWorth, 0);
+  const best = agentsWithPortfolio.length > 0
+    ? agentsWithPortfolio.reduce((a, b) => (a.netWorth > b.netWorth ? a : b))
     : null;
 
   return c.json({
@@ -35,7 +31,7 @@ dashboardRoutes.get("/stats", async (c) => {
 });
 
 dashboardRoutes.get("/recent-orders", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
 
   const latestSession = await db.query.tradingSessions.findFirst({
     orderBy: desc(tradingSessions.sessionNumber),

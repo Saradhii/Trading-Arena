@@ -1,19 +1,20 @@
 import { Hono } from "hono";
-import { createDb } from "../db";
 import { getMarketOverview, getAssetPrice } from "../tools/trading";
 import { assets } from "../db/schema";
 import { and, eq } from "drizzle-orm";
+import { AppType } from "../middleware";
+import { ERRORS } from "../helpers";
 
-export const assetRoutes = new Hono<{ Bindings: { DB: D1Database } }>();
+export const assetRoutes = new Hono<AppType>();
 
 assetRoutes.get("/", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const assets = await getMarketOverview(db);
   return c.json(assets);
 });
 
 assetRoutes.post("/", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const body = await c.req.json<{
     symbol: string;
     name: string;
@@ -56,14 +57,14 @@ assetRoutes.post("/", async (c) => {
 });
 
 assetRoutes.put("/:symbol/price", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const symbol = c.req.param("symbol").toUpperCase();
   const { price } = await c.req.json<{ price: number }>();
 
   const asset = await db.query.assets.findFirst({
     where: eq(assets.symbol, symbol),
   });
-  if (!asset) return c.json({ error: "Asset not found" }, 404);
+  if (!asset) return c.json({ error: ERRORS.ASSET_NOT_FOUND }, 404);
 
   const updated = await db
     .update(assets)
@@ -75,7 +76,7 @@ assetRoutes.put("/:symbol/price", async (c) => {
 });
 
 assetRoutes.get("/:symbol", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const symbol = c.req.param("symbol");
   const asset = await getAssetPrice(db, symbol);
   return c.json(asset);

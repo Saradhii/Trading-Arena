@@ -8,21 +8,12 @@ import { leaderboardRoutes } from "./routes/leaderboard";
 import { tradingSessionRoutes } from "./routes/trading-session";
 import { dashboardRoutes } from "./routes/dashboard";
 import { runTradingSession } from "./services/trading-session";
+import { dbMiddleware, AppType } from "./middleware";
 
-type Bindings = {
-  DB: D1Database;
-  GROQ_API_KEY: string;
-  CEREBRAS_API_KEY: string;
-  OPENROUTER_API_KEY: string;
-  FINNHUB_API_KEY: string;
-  ZAI_API_KEY: string;
-  GOOGLE_API_KEY: string;
-  COINGECKO_API_KEY: string;
-};
-
-const app = new Hono<{ Bindings: Bindings }>();
+const app = new Hono<AppType>();
 
 app.use("/api/*", cors());
+app.use("/api/*", dbMiddleware);
 
 app.get("/", (c) => c.text("Trading Arena API"));
 
@@ -39,4 +30,4 @@ export default {
   scheduled: async (_event, env) => {
     await runTradingSession(env);
   },
-} satisfies ExportedHandler<Bindings>;
+} satisfies ExportedHandler<import("./env").Env>;

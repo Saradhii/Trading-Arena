@@ -7,9 +7,8 @@ import { CerebrasProvider } from "./providers/cerebras";
 import { OpenRouterProvider } from "./providers/openrouter";
 import { ZaiProvider } from "./providers/zai";
 import { GoogleProvider } from "./providers/google";
-import { eq } from "drizzle-orm";
+import { getAgentByIdOrThrow } from "../../helpers";
 import { createDb } from "../../db";
-import { aiAgents } from "../../db/schema";
 
 const PROVIDER_MAP: Record<string, BaseLLMProvider> = {
   groq: new GroqProvider(),
@@ -35,10 +34,7 @@ export async function chatWithTools(
 ): Promise<LLMResponse> {
   const db = createDb(env.DB);
 
-  const agent = await db.query.aiAgents.findFirst({
-    where: eq(aiAgents.id, agentId),
-  });
-  if (!agent) throw new Error(`Agent ${agentId} not found`);
+  const agent = await getAgentByIdOrThrow(db, agentId);
 
   const providerName = agent.provider;
   const model = agent.model;

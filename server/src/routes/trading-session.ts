@@ -1,12 +1,10 @@
 import { Hono } from "hono";
 import { runTradingSession } from "../services/trading-session";
-import { createDb } from "../db";
 import { desc } from "drizzle-orm";
 import { sessionLogs, tradingSessions } from "../db/schema";
+import { AppType } from "../middleware";
 
-export const tradingSessionRoutes = new Hono<{
-  Bindings: { DB: D1Database; GROQ_API_KEY: string; CEREBRAS_API_KEY: string; OPENROUTER_API_KEY: string; FINNHUB_API_KEY: string; ZAI_API_KEY: string; GOOGLE_API_KEY: string; COINGECKO_API_KEY: string };
-}>();
+export const tradingSessionRoutes = new Hono<AppType>();
 
 tradingSessionRoutes.post("/run", async (c) => {
   const result = await runTradingSession(c.env);
@@ -14,7 +12,7 @@ tradingSessionRoutes.post("/run", async (c) => {
 });
 
 tradingSessionRoutes.get("/logs", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const logs = await db.query.sessionLogs.findMany({
     orderBy: desc(sessionLogs.id),
     with: { agent: true, session: true },
@@ -23,7 +21,7 @@ tradingSessionRoutes.get("/logs", async (c) => {
 });
 
 tradingSessionRoutes.get("/logs/summary", async (c) => {
-  const db = createDb(c.env.DB);
+  const db = c.get("db");
   const sessions = await db.query.tradingSessions.findMany({
     orderBy: desc(tradingSessions.sessionNumber),
     with: { sessionLogs: { with: { agent: true } } },

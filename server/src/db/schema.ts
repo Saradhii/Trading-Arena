@@ -91,6 +91,7 @@ export const holdings = sqliteTable("holdings", {
     .$defaultFn(() => new Date()),
   updatedAt: integer("updated_at", { mode: "timestamp" })
     .notNull()
+    .default(sql`(unixepoch())`)
     .$defaultFn(() => new Date())
     .$onUpdateFn(() => new Date()),
 });
