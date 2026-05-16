@@ -12,7 +12,7 @@ import { GoogleProvider } from "./providers/google";
 import { getAgentByIdOrThrow } from "../../helpers";
 import { createDb } from "../../db";
 
-const PROVIDER_MAP: Record<string, BaseLLMProvider> = {
+export const PROVIDER_MAP: Record<string, BaseLLMProvider> = {
   groq: new GroqProvider(),
   cerebras: new CerebrasProvider(),
   sambanova: new SambaNovaProvider(),
@@ -22,7 +22,7 @@ const PROVIDER_MAP: Record<string, BaseLLMProvider> = {
   google: new GoogleProvider(),
 };
 
-const API_KEY_MAP: Record<string, keyof Env> = {
+export const API_KEY_MAP: Record<string, keyof Env> = {
   groq: "GROQ_API_KEY",
   cerebras: "CEREBRAS_API_KEY",
   sambanova: "SAMBANOVA_API_KEY",

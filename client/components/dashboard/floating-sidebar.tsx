@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 
 const PANEL_CLASS =
-  "fixed left-4 z-40 w-52 rounded-2xl border border-black/70 bg-background/60 p-3 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-white/80 dark:bg-background/40 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+  "fixed left-4 z-40 w-52 rounded-2xl bg-background/70 p-3 ring-1 ring-black/5 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.18)] backdrop-blur-xl dark:bg-background/55 dark:ring-white/10 dark:shadow-[0_10px_30px_-12px_rgba(0,0,0,0.55)]"
 
 const NAV_LINK_BASE =
   "font-pixel-square block rounded-xl px-3 py-2 text-base tracking-wide transition-colors"

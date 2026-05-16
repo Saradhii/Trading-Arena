@@ -7,6 +7,7 @@ import { sessionRoutes } from "./routes/sessions";
 import { leaderboardRoutes } from "./routes/leaderboard";
 import { tradingSessionRoutes } from "./routes/trading-session";
 import { dashboardRoutes } from "./routes/dashboard";
+import { providerRoutes } from "./routes/providers";
 import { runTradingSession } from "./services/trading-session";
 import { dbMiddleware, AppType } from "./middleware";
 
@@ -24,6 +25,7 @@ app.route("/api/sessions", sessionRoutes);
 app.route("/api/leaderboard", leaderboardRoutes);
 app.route("/api/trading-session", tradingSessionRoutes);
 app.route("/api/dashboard", dashboardRoutes);
+app.route("/api/providers", providerRoutes);
 
 export default {
   fetch: app.fetch,

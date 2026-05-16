@@ -9,8 +9,25 @@ export const agentRoutes = new Hono<AppType>();
 
 agentRoutes.get("/", async (c) => {
   const db = c.get("db");
-  const agentsWithPortfolio = await getAgentsWithPortfolios(db);
-  return c.json(agentsWithPortfolio);
+  const search = c.req.query("search")?.trim().toLowerCase() ?? "";
+  const status = c.req.query("status");
+
+  let agents = await getAgentsWithPortfolios(db);
+
+  if (status === "active") {
+    agents = agents.filter((a) => a.holdings.length > 0);
+  } else if (status === "inactive") {
+    agents = agents.filter((a) => a.holdings.length === 0);
+  }
+
+  if (search) {
+    agents = agents.filter((a) => {
+      const fields = [a.agentName, a.provider, a.model, a.parentCompany];
+      return fields.some((f) => f?.toLowerCase().includes(search));
+    });
+  }
+
+  return c.json(agents);
 });
 
 agentRoutes.get("/:id", async (c) => {

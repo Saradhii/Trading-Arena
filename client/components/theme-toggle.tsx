@@ -20,7 +20,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       aria-label={mounted ? `Switch to ${next} mode` : "Toggle theme"}
       onClick={() => setTheme(next)}
       className={cn(
-        "inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/40 bg-background/30 text-foreground backdrop-blur-sm transition-colors hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "inline-flex h-9 w-9 items-center justify-center rounded-md bg-background/30 text-foreground backdrop-blur-sm transition-colors hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
         className,
       )}
     >

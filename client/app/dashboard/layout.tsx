@@ -1,7 +1,7 @@
 import { FloatingSidebar } from "@/components/dashboard/floating-sidebar"
 
 const PANEL_CLASS =
-  "rounded-2xl border border-black/70 bg-background/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-blur-md dark:border-white/80 dark:bg-background/40 dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]"
+  "rounded-2xl bg-background/70 ring-1 ring-black/5 shadow-[0_10px_30px_-12px_rgba(0,0,0,0.18)] backdrop-blur-xl dark:bg-background/55 dark:ring-white/10 dark:shadow-[0_10px_30px_-12px_rgba(0,0,0,0.55)]"
 
 export default function DashboardLayout({
   children,
