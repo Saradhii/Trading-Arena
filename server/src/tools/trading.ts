@@ -1,6 +1,6 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import type { Database } from "../db";
-import { aiAgents, assets, holdings, orders, netWorthSnapshots } from "../db/schema";
+import { aiAgents, assets, holdings, orders, netWorthSnapshots, sessionLogs } from "../db/schema";
 import { getAgentByIdOrThrow, getAssetBySymbolOrThrow } from "../helpers";
 
 type Agent = typeof aiAgents.$inferSelect;
@@ -34,8 +34,25 @@ async function createOrder(
 export async function getAgentsWithPortfolios(db: Database) {
   const agents = await db.query.aiAgents.findMany();
 
+  const [latestLog] = await db.query.sessionLogs.findMany({
+    orderBy: desc(sessionLogs.createdAt),
+    limit: 1,
+  });
+  const latestSessionId = latestLog?.sessionId ?? null;
+
+  const participants = latestSessionId
+    ? await db.query.sessionLogs.findMany({
+        where: and(
+          eq(sessionLogs.sessionId, latestSessionId),
+          eq(sessionLogs.status, "success"),
+        ),
+      })
+    : [];
+  const activeAgentIds = new Set(participants.map((l) => l.agentId));
+
   const agentsWithPortfolio = await Promise.all(
     agents.map(async (agent) => {
+      const active = activeAgentIds.has(agent.id);
       try {
         const portfolio = await getPortfolio(db, agent.id);
         return {
@@ -44,6 +61,7 @@ export async function getAgentsWithPortfolios(db: Database) {
           netWorth: portfolio.netWorth,
           cashBalance: portfolio.cashBalance,
           holdings: portfolio.holdings,
+          active,
         };
       } catch {
         return {
@@ -52,6 +70,7 @@ export async function getAgentsWithPortfolios(db: Database) {
           netWorth: agent.cashBalance,
           cashBalance: agent.cashBalance,
           holdings: [],
+          active,
         };
       }
     })

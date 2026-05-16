@@ -25,6 +25,7 @@ interface Agent {
   portfolioValue: number
   netWorth: number
   holdings: Holding[]
+  active: boolean
 }
 
 type Status = "all" | "active" | "inactive"
@@ -140,7 +141,7 @@ function AgentCard({ agent }: { agent: Agent }) {
   const pnl = agent.netWorth - INITIAL_CASH
   const pnlPct = (pnl / INITIAL_CASH) * 100
   const isUp = pnl >= 0
-  const active = agent.holdings.length > 0
+  const active = agent.active
 
   return (
     <div className="flex flex-col gap-3 rounded-xl bg-background/40 p-4 ring-1 ring-black/5 dark:ring-white/10">
@@ -167,7 +168,7 @@ function AgentCard({ agent }: { agent: Agent }) {
                 isUp ? "text-emerald-500" : "text-red-500",
               )}
             >
-              {fmtSignedUSD(pnl)} · {fmtPct(pnlPct)}
+              {fmtSignedUSD(pnl)} ({fmtPct(pnlPct)})
             </span>
           </div>
           <span

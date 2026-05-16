@@ -29,7 +29,7 @@ export function FloatingSidebar() {
           href="/"
           className={cn(
             NAV_LINK_BASE,
-            "text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+            "text-center text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
           )}
         >
           Home

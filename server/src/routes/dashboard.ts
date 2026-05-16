@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { orders, tradingSessions } from "../db/schema";
+import { orders, tradingSessions, netWorthSnapshots } from "../db/schema";
 import { sql, desc, eq } from "drizzle-orm";
 import { getAgentsWithPortfolios } from "../tools/trading";
 import { AppType } from "../middleware";
@@ -28,6 +28,46 @@ dashboardRoutes.get("/stats", async (c) => {
       ? { agentName: best.agentName, netWorth: best.netWorth }
       : null,
   });
+});
+
+dashboardRoutes.get("/networth-history", async (c) => {
+  const db = c.get("db");
+
+  const snapshots = await db.query.netWorthSnapshots.findMany({
+    with: { agent: true, session: true },
+  });
+
+  const byAgent = new Map<string, { agentName: string; points: { sessionNumber: number; netWorth: number }[] }>();
+  for (const s of snapshots) {
+    const entry = byAgent.get(s.agentId) ?? { agentName: s.agent.agentName, points: [] };
+    entry.points.push({ sessionNumber: s.session.sessionNumber, netWorth: s.netWorth });
+    byAgent.set(s.agentId, entry);
+  }
+
+  const series = Array.from(byAgent.entries()).map(([agentId, v]) => ({
+    agentId,
+    agentName: v.agentName,
+    points: v.points.sort((a, b) => a.sessionNumber - b.sessionNumber),
+  }));
+
+  return c.json(series);
+});
+
+dashboardRoutes.get("/trades-by-session", async (c) => {
+  const db = c.get("db");
+
+  const rows = await db
+    .select({
+      sessionId: orders.sessionId,
+      sessionNumber: tradingSessions.sessionNumber,
+      count: sql<number>`count(*)`,
+    })
+    .from(orders)
+    .innerJoin(tradingSessions, eq(orders.sessionId, tradingSessions.id))
+    .groupBy(orders.sessionId, tradingSessions.sessionNumber)
+    .orderBy(tradingSessions.sessionNumber);
+
+  return c.json(rows);
 });
 
 dashboardRoutes.get("/recent-orders", async (c) => {

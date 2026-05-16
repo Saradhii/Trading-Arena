@@ -15,9 +15,9 @@ agentRoutes.get("/", async (c) => {
   let agents = await getAgentsWithPortfolios(db);
 
   if (status === "active") {
-    agents = agents.filter((a) => a.holdings.length > 0);
+    agents = agents.filter((a) => a.active);
   } else if (status === "inactive") {
-    agents = agents.filter((a) => a.holdings.length === 0);
+    agents = agents.filter((a) => !a.active);
   }
 
   if (search) {
