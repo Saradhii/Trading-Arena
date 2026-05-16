@@ -2,8 +2,8 @@ import {
   HeroLiquidMetalRoot,
   HeroLiquidMetalContainer,
   HeroLiquidMetalContent,
-  HeroLiquidMetalVisual,
 } from "@/components/ui/hero-liquid-metal"
+import { HeroLiquidMetalVisualLazy } from "@/components/ui/hero-liquid-metal-visual-lazy"
 import { PixelHeading } from "@/components/ui/pixel-heading-character"
 import { PixelParagraphInverse } from "@/components/ui/pixel-paragraph-words-inverse"
 import { CosmicButton } from "@/components/ui/cosmic-button"
@@ -58,7 +58,7 @@ export default function Page() {
             </div>
           </HeroLiquidMetalContent>
 
-          <HeroLiquidMetalVisual />
+          <HeroLiquidMetalVisualLazy />
         </HeroLiquidMetalContainer>
       </HeroLiquidMetalRoot>
     </main>

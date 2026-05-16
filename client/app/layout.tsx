@@ -37,6 +37,14 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${GeistPixelSquare.variable} ${GeistPixelGrid.variable} ${GeistPixelCircle.variable} ${GeistPixelTriangle.variable} ${GeistPixelLine.variable} h-full antialiased`}
     >
+      <head>
+        <link
+          rel="preload"
+          href="/cult-icon.svg"
+          as="image"
+          type="image/svg+xml"
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <ThemeToggle className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6" />
