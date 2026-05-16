@@ -12,3 +12,9 @@ Thumbs.db
 .wrangler/
 server/.next/
 client/package-lock.json
+
+# Environment / secrets
+.dev.vars
+.env
+.env.local
+.env*.local
