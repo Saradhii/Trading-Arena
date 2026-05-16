@@ -31,6 +31,17 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-signal-up: var(--signal-up);
+  --color-signal-down: var(--signal-down);
+  --color-signal-warn: var(--signal-warn);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
+  --color-grid-line: var(--grid-line);
+  --color-panel: var(--panel);
+  --color-panel-soft: var(--panel-soft);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
@@ -110,6 +121,18 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  --panel: oklch(0.995 0 0);
+  --panel-soft: oklch(0.975 0 0);
+  --signal-up: oklch(0.58 0.16 148);
+  --signal-down: oklch(0.55 0.21 25);
+  --signal-warn: oklch(0.68 0.16 78);
+  --series-1: oklch(0.6 0.17 248);
+  --series-2: oklch(0.62 0.17 38);
+  --series-3: oklch(0.58 0.16 148);
+  --series-4: oklch(0.55 0.18 295);
+  --series-5: oklch(0.6 0.2 12);
+  --grid-line: oklch(0.93 0 0);
 }
 
 .dark {
@@ -144,6 +167,158 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  --panel: oklch(0.185 0 0);
+  --panel-soft: oklch(0.165 0 0);
+  --signal-up: oklch(0.78 0.18 148);
+  --signal-down: oklch(0.7 0.22 25);
+  --signal-warn: oklch(0.82 0.17 78);
+  --series-1: oklch(0.74 0.16 248);
+  --series-2: oklch(0.78 0.17 38);
+  --series-3: oklch(0.76 0.16 148);
+  --series-4: oklch(0.7 0.17 295);
+  --series-5: oklch(0.72 0.19 12);
+  --grid-line: oklch(0.27 0 0);
+}
+
+@keyframes ticker-scroll {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+@utility animate-ticker {
+  animation: ticker-scroll var(--duration, 60s) linear infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
+  50%      { box-shadow: 0 0 0 6px transparent; opacity: 0.6; }
+}
+@utility animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes draw-path {
+  from { stroke-dashoffset: var(--path-length, 1000); }
+  to   { stroke-dashoffset: 0; }
+}
+@utility animate-draw-path {
+  animation: draw-path 1.4s ease-out forwards;
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@utility animate-fade-in-up {
+  animation: fade-in-up 360ms ease-out backwards;
+}
+
+@utility grid-pattern {
+  background-image:
+    linear-gradient(oklch(0.7 0.18 170 / 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.7 0.18 170 / 0.03) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+@utility dot-grid-bg {
+  background-image: radial-gradient(circle, color-mix(in oklch, var(--foreground) 14%, transparent) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@keyframes brut-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+@utility animate-brut-blink {
+  animation: brut-blink 1s step-end infinite;
+}
+
+@keyframes brut-glitch {
+  0%, 90%, 100% { transform: translate(0); filter: none; }
+  92%           { transform: translate(-1px, 0.5px); filter: hue-rotate(15deg); }
+  94%           { transform: translate(1px, -0.5px); filter: hue-rotate(-15deg); }
+  96%           { transform: translate(-0.5px, -0.5px); }
+  98%           { transform: translate(0.5px, 1px); }
+}
+@utility animate-brut-glitch {
+  animation: brut-glitch 6s infinite;
+}
+
+/* ------------------------------------------------------------------ */
+/* Brutalist theme — scoped via .theme-brutalist on a wrapping element */
+/* ------------------------------------------------------------------ */
+.theme-brutalist {
+  --background:     oklch(0.93 0.022 90);
+  --foreground:     oklch(0.16 0 0);
+  --card:           oklch(0.93 0.022 90);
+  --card-foreground:oklch(0.16 0 0);
+  --popover:        oklch(0.93 0.022 90);
+  --popover-foreground:oklch(0.16 0 0);
+  --primary:        oklch(0.16 0 0);
+  --primary-foreground: oklch(0.93 0.022 90);
+  --secondary:      oklch(0.88 0.012 90);
+  --secondary-foreground: oklch(0.16 0 0);
+  --muted:          oklch(0.86 0.012 90);
+  --muted-foreground: oklch(0.46 0.01 80);
+  --accent:         oklch(0.65 0.19 36);
+  --accent-foreground: oklch(0.98 0 0);
+  --destructive:    oklch(0.6 0.21 27);
+  --border:         oklch(0.32 0 0);
+  --input:          oklch(0.32 0 0);
+  --ring:           oklch(0.16 0 0);
+
+  --panel:          oklch(0.93 0.022 90);
+  --panel-soft:     oklch(0.89 0.014 90);
+  --signal-up:      oklch(0.55 0.16 148);
+  --signal-down:    oklch(0.55 0.21 25);
+  --signal-warn:    oklch(0.66 0.16 78);
+  --series-1:       oklch(0.55 0.17 248);
+  --series-2:       oklch(0.62 0.17 38);
+  --series-3:       oklch(0.55 0.16 148);
+  --series-4:       oklch(0.52 0.18 295);
+  --series-5:       oklch(0.6 0.2 12);
+  --grid-line:      oklch(0.16 0 0 / 18%);
+}
+
+.dark .theme-brutalist,
+.theme-brutalist.dark {
+  --background:     oklch(0.10 0 0);
+  --foreground:     oklch(0.93 0.022 90);
+  --card:           oklch(0.13 0 0);
+  --card-foreground:oklch(0.93 0.022 90);
+  --popover:        oklch(0.13 0 0);
+  --popover-foreground: oklch(0.93 0.022 90);
+  --primary:        oklch(0.93 0.022 90);
+  --primary-foreground: oklch(0.10 0 0);
+  --secondary:      oklch(0.18 0 0);
+  --secondary-foreground: oklch(0.93 0.022 90);
+  --muted:          oklch(0.20 0 0);
+  --muted-foreground: oklch(0.66 0 0);
+  --accent:         oklch(0.68 0.19 36);
+  --accent-foreground: oklch(0.10 0 0);
+  --border:         oklch(0.32 0 0);
+  --input:          oklch(0.32 0 0);
+  --ring:           oklch(0.93 0.022 90);
+
+  --panel:          oklch(0.12 0 0);
+  --panel-soft:     oklch(0.15 0 0);
+  --signal-up:      oklch(0.78 0.18 148);
+  --signal-down:    oklch(0.7 0.22 25);
+  --signal-warn:    oklch(0.82 0.17 78);
+  --grid-line:      oklch(0.93 0.022 90 / 18%);
+}
+
+/* Force sharp corners inside brutalist scope on rectangular containers
+   (leaves rounded-full circles like avatars/status dots alone). */
+.theme-brutalist .rounded,
+.theme-brutalist .rounded-sm,
+.theme-brutalist .rounded-md,
+.theme-brutalist .rounded-lg,
+.theme-brutalist .rounded-xl,
+.theme-brutalist .rounded-2xl,
+.theme-brutalist .rounded-r-sm,
+.theme-brutalist [class*="rounded-["] {
+  border-radius: 0 !important;
 }
 
 @layer base {

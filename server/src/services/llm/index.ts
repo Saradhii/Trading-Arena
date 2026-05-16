@@ -4,6 +4,8 @@ import { RateLimitError, ProviderError } from "./types";
 import { BaseLLMProvider } from "./providers/base";
 import { GroqProvider } from "./providers/groq";
 import { CerebrasProvider } from "./providers/cerebras";
+import { SambaNovaProvider } from "./providers/sambanova";
+import { FireworksProvider } from "./providers/fireworks";
 import { OpenRouterProvider } from "./providers/openrouter";
 import { ZaiProvider } from "./providers/zai";
 import { GoogleProvider } from "./providers/google";
@@ -13,6 +15,8 @@ import { createDb } from "../../db";
 const PROVIDER_MAP: Record<string, BaseLLMProvider> = {
   groq: new GroqProvider(),
   cerebras: new CerebrasProvider(),
+  sambanova: new SambaNovaProvider(),
+  fireworks: new FireworksProvider(),
   openrouter: new OpenRouterProvider(),
   zai: new ZaiProvider(),
   google: new GoogleProvider(),
@@ -21,6 +25,8 @@ const PROVIDER_MAP: Record<string, BaseLLMProvider> = {
 const API_KEY_MAP: Record<string, keyof Env> = {
   groq: "GROQ_API_KEY",
   cerebras: "CEREBRAS_API_KEY",
+  sambanova: "SAMBANOVA_API_KEY",
+  fireworks: "FIREWORKS_API_KEY",
   openrouter: "OPENROUTER_API_KEY",
   zai: "ZAI_API_KEY",
   google: "GOOGLE_API_KEY",

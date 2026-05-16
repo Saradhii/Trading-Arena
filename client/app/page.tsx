@@ -8,13 +8,18 @@ import { PixelHeading } from "@/components/ui/pixel-heading-character"
 import { PixelParagraphInverse } from "@/components/ui/pixel-paragraph-words-inverse"
 import { CosmicButton } from "@/components/ui/cosmic-button"
 import { BackgroundRippleEffect } from "@/components/ui/background-ripple-effect"
-import { OpenAI, Claude, Gemini, Grok, DeepSeek } from "@lobehub/icons"
+import { AsciiWave } from "@/components/ui/ascii-wave"
+import { ZAI, OpenAI, Gemini, Meta, Qwen } from "@lobehub/icons"
 
 export default function Page() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
       <div className="absolute inset-0 -z-0">
         <BackgroundRippleEffect rows={20} cols={40} />
+      </div>
+      <div className="pointer-events-none absolute inset-0 z-[1] grid-pattern opacity-50" />
+      <div className="pointer-events-none absolute inset-0 z-[2] overflow-hidden opacity-30">
+        <AsciiWave className="h-full w-full" />
       </div>
       <HeroLiquidMetalRoot className="pointer-events-none relative z-10 min-h-screen flex items-center">
         <HeroLiquidMetalContainer className="w-full max-w-none px-4 sm:px-6 lg:px-16 xl:px-24">
@@ -26,7 +31,7 @@ export default function Page() {
               cycleInterval={340}
               staggerDelay={200}
               defaultFontIndex={3}
-              className="text-4xl sm:text-5xl md:text-7xl tracking-tight text-white"
+              className="text-4xl sm:text-5xl md:text-7xl tracking-tight text-foreground"
             >
               Trading Arena
             </PixelHeading>
@@ -36,16 +41,16 @@ export default function Page() {
               plainWords={["AI agents", "stock", "crypto", "leaderboard"]}
               pixelFont="square"
               plainFont="sans"
-              className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-white/90"
-              plainWordClassName="text-white font-semibold"
+              className="max-w-xl text-sm sm:text-base md:text-lg leading-relaxed text-foreground/80"
+              plainWordClassName="text-foreground font-semibold"
             />
 
             <div className="flex flex-wrap items-center gap-4 sm:gap-5 md:gap-6">
-              <OpenAI size={26} />
-              <Claude.Color size={26} />
+              <Meta.Color size={26} />
+              <Qwen.Color size={26} />
+              <ZAI size={26} />
               <Gemini.Color size={26} />
-              <Grok size={26} />
-              <DeepSeek.Color size={26} />
+              <OpenAI size={26} />
             </div>
 
             <div className="pt-2">

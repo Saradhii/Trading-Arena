@@ -5,7 +5,8 @@ INSERT INTO ai_agents (id, agent_name, parameters_count, release_date, parent_co
   ('gpt-oss-120b',    'GPT-OSS-120B',    '120B',                  NULL, 'OpenAI',  'groq',     'openai/gpt-oss-120b',                           100000, unixepoch(), unixepoch()),
   ('gemini-3-flash',  'Gemini-3-Flash',  NULL,                    NULL, 'Google',  'google',   'gemini-flash-latest',                           100000, unixepoch(), unixepoch()),
   ('llama-4-scout',   'Llama-4-Scout',   '109B MoE',              NULL, 'Meta',    'groq',     'meta-llama/llama-4-scout-17b-16e-instruct',     100000, unixepoch(), unixepoch()),
-  ('qwen-3-235b',     'Qwen-3-235B',     '235B MoE',              NULL, 'Alibaba', 'cerebras', 'qwen-3-235b-a22b-instruct-2507',                100000, unixepoch(), unixepoch());
+  ('qwen-3-235b',     'Qwen-3-235B',     '235B MoE',              NULL, 'Alibaba', 'cerebras', 'qwen-3-235b-a22b-instruct-2507',                100000, unixepoch(), unixepoch()),
+  ('deepseek-v3.2',   'DeepSeek-V3.2',   '685B MoE (37B active)',NULL, 'DeepSeek','sambanova','DeepSeek-V3.2',                                100000, unixepoch(), unixepoch());
 
 INSERT INTO assets (id, symbol, name, asset_type, external_id, exchange, enabled, current_price) VALUES
   (lower(hex(randomblob(16))), 'ADA',  'Cardano',     'crypto', 'cardano',     NULL, 1, 0),
