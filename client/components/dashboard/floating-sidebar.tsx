@@ -27,12 +27,13 @@ export function FloatingSidebar() {
       <div aria-label="Quick links" className={cn(PANEL_CLASS, "top-4")}>
         <Link
           href="/"
+          aria-label="Trading Arena home"
           className={cn(
             NAV_LINK_BASE,
-            "text-center text-foreground/70 hover:bg-foreground/5 hover:text-foreground",
+            "border border-dotted border-foreground/20 text-center text-foreground/70 hover:border-foreground/40 hover:bg-foreground/5 hover:text-foreground",
           )}
         >
-          Home
+          Trading Arena
         </Link>
       </div>
 
