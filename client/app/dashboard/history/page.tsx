@@ -388,7 +388,7 @@ function FilterSelect({
   return (
     <Select
       value={value === "" ? "all" : value}
-      onValueChange={(v: string) => onChange(v === "all" ? "" : v)}
+      onValueChange={(v) => onChange(v === "all" ? "" : (v as string))}
     >
       <SelectTrigger
         size="sm"
