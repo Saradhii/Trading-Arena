@@ -49,6 +49,25 @@ interface SessionOrder {
   asset: OrderAsset
 }
 
+interface AgentDecision {
+  id: string
+  decisionType: "trade" | "hold" | "error"
+  reasoning: string | null
+  agent: OrderAgent
+}
+
+interface SessionLog {
+  id: string
+  providerUsed: string
+  modelUsed: string
+  status: "success" | "skipped" | "failed"
+  failureReason: string | null
+  toolCallsMade: number | null
+  tokensUsed: number | null
+  latencyMs: number | null
+  agent: OrderAgent
+}
+
 const fmtUSD = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -89,6 +108,8 @@ export default function SessionDetailPage({
   const { sessionNumber } = use(params)
   const [session, setSession] = useState<Session | null>(null)
   const [orders, setOrders] = useState<SessionOrder[] | null>(null)
+  const [decisions, setDecisions] = useState<AgentDecision[] | null>(null)
+  const [logs, setLogs] = useState<SessionLog[] | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -104,8 +125,12 @@ export default function SessionDetailPage({
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return (await r.json()) as SessionOrder[]
       }),
+      fetch(`/api/sessions/${sessionNumber}/decisions`).then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return (await r.json()) as { decisions: AgentDecision[]; logs: SessionLog[] }
+      }),
     ])
-      .then(([s, o]) => {
+      .then(([s, o, d]) => {
         if (cancelled) return
         setSession(s)
         setOrders(
@@ -117,6 +142,8 @@ export default function SessionDetailPage({
                 new Date(a.executedAt).getTime(),
             ),
         )
+        setDecisions(d.decisions)
+        setLogs(d.logs)
       })
       .catch((err) => {
         if (!cancelled) setError(err.message ?? "Failed to fetch")
@@ -193,7 +220,7 @@ export default function SessionDetailPage({
           <TradesTableSkeleton />
         ) : orders.length === 0 ? (
           <div className="font-pixel-square p-6 text-sm text-foreground/40">
-            No trades in this session
+            No trades executed this session — see agent activity below.
           </div>
         ) : (
           <Table>
@@ -296,6 +323,106 @@ export default function SessionDetailPage({
           </Table>
         )}
       </div>
+
+      {/* Agent Activity */}
+      {decisions && logs && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-pixel-square text-sm uppercase tracking-wider text-foreground/60">
+            Agent Activity
+          </h2>
+          <div className="overflow-hidden rounded-xl bg-background/40 ring-1 ring-black/5 dark:ring-white/10">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-foreground/10 hover:bg-transparent">
+                  <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                    Agent
+                  </TableHead>
+                  <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                    Decision
+                  </TableHead>
+                  <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                    Status
+                  </TableHead>
+                  <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                    Latency
+                  </TableHead>
+                  <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                    Tokens
+                  </TableHead>
+                  <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                    Reasoning
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {decisions.map((d) => {
+                  const log = logs.find((l) => l.agent.id === d.agent.id)
+                  return (
+                    <TableRow key={d.id} className="border-foreground/5">
+                      <TableCell>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <BrandLogo
+                            brand={d.agent.parentCompany ?? d.agent.provider}
+                            size={16}
+                          />
+                          <div className="flex min-w-0 flex-col">
+                            <span className="font-pixel-square truncate text-xs text-foreground">
+                              {d.agent.agentName}
+                            </span>
+                            <span className="font-pixel-square truncate text-[10px] tracking-wide text-foreground/40">
+                              {log?.providerUsed ?? d.agent.provider}
+                            </span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "font-pixel-square inline-flex items-center rounded-md px-2 py-0.5 text-[10px] uppercase tracking-wider",
+                            d.decisionType === "trade"
+                              ? "bg-blue-500/10 text-blue-500"
+                              : d.decisionType === "hold"
+                                ? "bg-amber-500/10 text-amber-500"
+                                : "bg-red-500/10 text-red-500",
+                          )}
+                        >
+                          {d.decisionType}
+                        </span>
+                      </TableCell>
+                      <TableCell>
+                        <span
+                          className={cn(
+                            "font-pixel-square inline-flex items-center rounded-md px-2 py-0.5 text-[10px] uppercase tracking-wider",
+                            log?.status === "success"
+                              ? "bg-emerald-500/10 text-emerald-500"
+                              : "bg-red-500/10 text-red-500",
+                          )}
+                        >
+                          {log?.status ?? "—"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-pixel-square text-right text-xs text-foreground/60">
+                        {log?.latencyMs != null ? `${(log.latencyMs / 1000).toFixed(1)}s` : "—"}
+                      </TableCell>
+                      <TableCell className="font-pixel-square text-right text-xs text-foreground/60">
+                        {log?.tokensUsed != null ? log.tokensUsed.toLocaleString() : "—"}
+                      </TableCell>
+                      <TableCell className="max-w-[400px]">
+                        <span
+                          title={d.reasoning ?? ""}
+                          className="font-pixel-square line-clamp-2 text-xs text-foreground/60"
+                        >
+                          {d.reasoning ?? "—"}
+                        </span>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

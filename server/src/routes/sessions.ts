@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { tradingSessions, orders } from "../db/schema";
+import { tradingSessions, orders, agentDecisions, sessionLogs } from "../db/schema";
 import { eq, desc } from "drizzle-orm";
 import { AppType } from "../middleware";
 import { ERRORS } from "../helpers";
@@ -34,6 +34,23 @@ sessionRoutes.get("/:sessionNumber/orders", async (c) => {
     with: { agent: true, asset: true },
   });
   return c.json(sessionOrders);
+});
+
+sessionRoutes.get("/:sessionNumber/decisions", async (c) => {
+  const db = c.get("db");
+  const session = await db.query.tradingSessions.findFirst({
+    where: eq(tradingSessions.sessionNumber, Number(c.req.param("sessionNumber"))),
+  });
+  if (!session) return c.json({ error: ERRORS.SESSION_NOT_FOUND }, 404);
+  const decisions = await db.query.agentDecisions.findMany({
+    where: eq(agentDecisions.sessionId, session.id),
+    with: { agent: true },
+  });
+  const logs = await db.query.sessionLogs.findMany({
+    where: eq(sessionLogs.sessionId, session.id),
+    with: { agent: true },
+  });
+  return c.json({ decisions, logs });
 });
 
 sessionRoutes.post("/", async (c) => {
