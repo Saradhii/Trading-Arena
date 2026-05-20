@@ -58,6 +58,7 @@ export default function DashboardPage() {
   const [agents, setAgents] = useState<Agent[] | null>(null)
   const [history, setHistory] = useState<NetWorthSeries[] | null>(null)
   const [trades, setTrades] = useState<TradesBySession[] | null>(null)
+  const [netWorthView, setNetWorthView] = useState<"grid" | "overlay">("grid")
 
   useEffect(() => {
     let cancelled = false
@@ -81,8 +82,19 @@ export default function DashboardPage() {
       <Panel title="Leaderboard">
         <LeaderboardTable agents={agents} />
       </Panel>
-      <Panel title="Net worth over sessions">
-        <NetWorthChart history={history} agents={agents} />
+      <Panel
+        title="Net worth over sessions"
+        action={
+          history && history.length > 0 ? (
+            <NetWorthViewToggle view={netWorthView} setView={setNetWorthView} />
+          ) : null
+        }
+      >
+        <NetWorthChart
+          history={history}
+          agents={agents}
+          view={netWorthView}
+        />
       </Panel>
       <Panel title="Trades per session">
         <TradesChart trades={trades} />
@@ -94,12 +106,23 @@ export default function DashboardPage() {
   )
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  action,
+  children,
+}: {
+  title: string
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
   return (
     <div className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden rounded-xl bg-background/40 p-4 ring-1 ring-black/5 dark:ring-white/10">
-      <h3 className="font-pixel-square text-[10px] uppercase tracking-wider text-foreground/40">
-        {title}
-      </h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="font-pixel-square text-[10px] uppercase tracking-wider text-foreground/40">
+          {title}
+        </h3>
+        {action}
+      </div>
       <div className="min-h-0 min-w-0 flex-1">{children}</div>
     </div>
   )
@@ -192,12 +215,12 @@ function niceTicks(min: number, max: number, count = 4) {
 function NetWorthChart({
   history,
   agents,
+  view,
 }: {
   history: NetWorthSeries[] | null
   agents: Agent[] | null
+  view: "grid" | "overlay"
 }) {
-  const [view, setView] = useState<"grid" | "overlay">("grid")
-
   if (!history) return <Skeleton className="h-full w-full" />
   if (history.length === 0)
     return <EmptyChart label="No snapshots yet" />
@@ -215,10 +238,7 @@ function NetWorthChart({
   }
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
-      <div className="absolute right-0 top-0 z-20">
-        <NetWorthViewToggle view={view} setView={setView} />
-      </div>
+    <div className="flex h-full min-h-0 flex-col">
       {view === "grid" ? (
         <NetWorthSparklines history={history} brandFor={brandFor} />
       ) : (
@@ -236,14 +256,14 @@ function NetWorthViewToggle({
   setView: (v: "grid" | "overlay") => void
 }) {
   return (
-    <div className="inline-flex items-center rounded-md p-0.5 ring-1 ring-foreground/10 bg-background/60 backdrop-blur">
+    <div className="inline-flex items-center rounded-md p-0.5 ring-1 ring-foreground/10">
       {(["grid", "overlay"] as const).map((id) => (
         <button
           key={id}
           type="button"
           onClick={() => setView(id)}
           className={cn(
-            "rounded px-2 py-1 font-pixel-square text-[10px] uppercase tracking-wider transition-colors",
+            "rounded px-2 py-0.5 font-pixel-square text-[10px] uppercase tracking-wider transition-colors",
             view === id
               ? "bg-foreground/10 text-foreground/90"
               : "text-foreground/40 hover:text-foreground/70",
@@ -281,7 +301,7 @@ function NetWorthSparklines({
   return (
     <div
       className={cn(
-        "grid h-full min-h-0 auto-rows-fr gap-2 pt-10",
+        "grid h-full min-h-0 auto-rows-fr gap-2",
         gridCols,
       )}
     >
