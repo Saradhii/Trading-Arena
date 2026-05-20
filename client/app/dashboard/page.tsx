@@ -82,7 +82,7 @@ export default function DashboardPage() {
         <LeaderboardTable agents={agents} />
       </Panel>
       <Panel title="Net worth over sessions">
-        <NetWorthChart history={history} />
+        <NetWorthChart history={history} agents={agents} />
       </Panel>
       <Panel title="Trades per session">
         <TradesChart trades={trades} />
@@ -189,7 +189,15 @@ function niceTicks(min: number, max: number, count = 4) {
   return ticks
 }
 
-function NetWorthChart({ history }: { history: NetWorthSeries[] | null }) {
+function NetWorthChart({
+  history,
+  agents,
+}: {
+  history: NetWorthSeries[] | null
+  agents: Agent[] | null
+}) {
+  const [view, setView] = useState<"grid" | "overlay">("grid")
+
   if (!history) return <Skeleton className="h-full w-full" />
   if (history.length === 0)
     return <EmptyChart label="No snapshots yet" />
@@ -201,8 +209,177 @@ function NetWorthChart({ history }: { history: NetWorthSeries[] | null }) {
   if (sessionNumbers.length < 2)
     return <EmptyChart label="Need ≥2 sessions" />
 
+  const brandFor = (agentId: string) => {
+    const a = agents?.find((x) => x.id === agentId)
+    return a ? a.parentCompany ?? a.provider : null
+  }
+
+  return (
+    <div className="relative flex h-full min-h-0 flex-col">
+      <div className="absolute right-0 top-0 z-20">
+        <NetWorthViewToggle view={view} setView={setView} />
+      </div>
+      {view === "grid" ? (
+        <NetWorthSparklines history={history} brandFor={brandFor} />
+      ) : (
+        <NetWorthOverlay history={history} sessionNumbers={sessionNumbers} />
+      )}
+    </div>
+  )
+}
+
+function NetWorthViewToggle({
+  view,
+  setView,
+}: {
+  view: "grid" | "overlay"
+  setView: (v: "grid" | "overlay") => void
+}) {
+  return (
+    <div className="inline-flex items-center rounded-md p-0.5 ring-1 ring-foreground/10 bg-background/60 backdrop-blur">
+      {(["grid", "overlay"] as const).map((id) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => setView(id)}
+          className={cn(
+            "rounded px-2 py-1 font-pixel-square text-[10px] uppercase tracking-wider transition-colors",
+            view === id
+              ? "bg-foreground/10 text-foreground/90"
+              : "text-foreground/40 hover:text-foreground/70",
+          )}
+        >
+          {id}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function NetWorthSparklines({
+  history,
+  brandFor,
+}: {
+  history: NetWorthSeries[]
+  brandFor: (id: string) => string | null
+}) {
+  const allPoints = history.flatMap((s) => s.points)
+  const values = allPoints.map((p) => p.netWorth)
+  const minY = Math.min(...values, INITIAL_CASH)
+  const maxY = Math.max(...values, INITIAL_CASH)
+  const padY = (maxY - minY) * 0.15 || INITIAL_CASH * 0.005
+  const y0 = minY - padY
+  const y1 = maxY + padY
+
+  const gridCols =
+    history.length >= 5
+      ? "grid-cols-3"
+      : history.length >= 3
+        ? "grid-cols-2"
+        : "grid-cols-1"
+
+  return (
+    <div
+      className={cn(
+        "grid h-full min-h-0 auto-rows-fr gap-2 pt-10",
+        gridCols,
+      )}
+    >
+      {history.map((s, i) => {
+        const color = SERIES_COLORS[i % SERIES_COLORS.length]
+        const sorted = [...s.points].sort(
+          (a, b) => a.sessionNumber - b.sessionNumber,
+        )
+        const current = sorted[sorted.length - 1]?.netWorth ?? INITIAL_CASH
+        const pnl = current - INITIAL_CASH
+        const pnlPct = (pnl / INITIAL_CASH) * 100
+        const up = pnl >= 0
+        const brand = brandFor(s.agentId)
+
+        const VW = 200
+        const VH = 60
+        const minS = sorted[0]?.sessionNumber ?? 0
+        const maxS = sorted[sorted.length - 1]?.sessionNumber ?? 1
+        const xRange = Math.max(1, maxS - minS)
+        const pts = sorted.map((p) => ({
+          x: ((p.sessionNumber - minS) / xRange) * VW,
+          y: VH - ((p.netWorth - y0) / (y1 - y0)) * VH,
+        }))
+        const line = smoothPath(pts)
+        const baselineY =
+          VH - ((INITIAL_CASH - y0) / (y1 - y0)) * VH
+
+        return (
+          <div
+            key={s.agentId}
+            className="flex min-h-0 flex-col gap-1.5 rounded-lg bg-foreground/[0.03] p-2 ring-1 ring-inset ring-foreground/5"
+          >
+            <div className="flex min-w-0 items-center gap-1.5 font-pixel-square text-[10px]">
+              {brand ? (
+                <BrandLogo brand={brand} size={12} />
+              ) : (
+                <span className="h-3 w-3" />
+              )}
+              <span className="min-w-0 flex-1 truncate text-foreground/80">
+                {s.agentName}
+              </span>
+              <span className="text-foreground/60">{fmtUSD(current)}</span>
+            </div>
+            <div className="relative min-h-0 flex-1">
+              <svg
+                viewBox={`0 0 ${VW} ${VH}`}
+                preserveAspectRatio="none"
+                className="h-full w-full"
+              >
+                <line
+                  x1={0}
+                  x2={VW}
+                  y1={baselineY}
+                  y2={baselineY}
+                  stroke="currentColor"
+                  strokeOpacity={0.18}
+                  strokeDasharray="3 4"
+                  strokeWidth={1}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <path
+                  d={line}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={1.5}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  vectorEffect="non-scaling-stroke"
+                />
+              </svg>
+            </div>
+            <div
+              className={cn(
+                "text-right font-pixel-square text-[10px] tracking-wide",
+                up ? "text-emerald-500" : "text-red-500",
+              )}
+            >
+              {fmtSignedUSD(pnl)} ({fmtPct(pnlPct)})
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function NetWorthOverlay({
+  history,
+  sessionNumbers,
+}: {
+  history: NetWorthSeries[]
+  sessionNumbers: number[]
+}) {
+  const [focus, setFocus] = useState<string | null>(null)
+
   const minX = sessionNumbers[0]
   const maxX = sessionNumbers[sessionNumbers.length - 1]
+  const allPoints = history.flatMap((s) => s.points)
   const values = allPoints.map((p) => p.netWorth)
   const minY = Math.min(...values, INITIAL_CASH)
   const maxY = Math.max(...values, INITIAL_CASH)
@@ -214,7 +391,7 @@ function NetWorthChart({ history }: { history: NetWorthSeries[] | null }) {
   const VB_H = 320
   const PAD_L = 56
   const PAD_R = 16
-  const PAD_T = 16
+  const PAD_T = 28
   const PAD_B = 32
   const W = VB_W - PAD_L - PAD_R
   const H = VB_H - PAD_T - PAD_B
@@ -222,7 +399,6 @@ function NetWorthChart({ history }: { history: NetWorthSeries[] | null }) {
   const py = (y: number) => PAD_T + H - ((y - y0) / (y1 - y0)) * H
 
   const yTicks = niceTicks(y0, y1, 4)
-  const xTicks = sessionNumbers
   const tickStep = yTicks.length > 1 ? Math.abs(yTicks[1] - yTicks[0]) : 1
   const fmtTick = (v: number) => {
     if (tickStep >= 1000) return `$${(v / 1000).toFixed(0)}k`
@@ -231,128 +407,142 @@ function NetWorthChart({ history }: { history: NetWorthSeries[] | null }) {
     return `$${v.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
   }
 
-  return (
-    <div className="relative h-full w-full">
-      <svg
-        viewBox={`0 0 ${VB_W} ${VB_H}`}
-        preserveAspectRatio="none"
-        className="h-full w-full"
-      >
-        <defs>
-          {history.map((s, i) => {
-            const color = SERIES_COLORS[i % SERIES_COLORS.length]
-            return (
-              <linearGradient
-                key={s.agentId}
-                id={`grad-${s.agentId}`}
-                x1="0"
-                x2="0"
-                y1="0"
-                y2="1"
-              >
-                <stop offset="0%" stopColor={color} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
-            )
-          })}
-          <clipPath id="nw-reveal">
-            <rect x={PAD_L} y={0} height={VB_H} width={0}>
-              <animate
-                attributeName="width"
-                from="0"
-                to={W}
-                dur="1.1s"
-                begin="0.05s"
-                fill="freeze"
-                calcMode="spline"
-                keySplines="0.22 1 0.36 1"
-                keyTimes="0;1"
-                values={`0;${W}`}
-              />
-            </rect>
-          </clipPath>
-        </defs>
+  const xStep = Math.max(1, Math.ceil(sessionNumbers.length / 7))
+  const xTicks = sessionNumbers.filter(
+    (_, i) => i % xStep === 0 || i === sessionNumbers.length - 1,
+  )
+  const baselineY = py(INITIAL_CASH)
 
-        {yTicks.map((t) => (
-          <g key={`yt-${t}`}>
-            <line
-              x1={PAD_L}
-              x2={PAD_L + W}
-              y1={py(t)}
-              y2={py(t)}
-              stroke="currentColor"
-              strokeOpacity={0.12}
-              strokeDasharray="4 4"
-              strokeWidth={1}
-            />
+  return (
+    <div className="flex h-full min-h-0 flex-col gap-2">
+      <div className="relative min-h-0 flex-1">
+        <svg
+          viewBox={`0 0 ${VB_W} ${VB_H}`}
+          preserveAspectRatio="none"
+          className="h-full w-full"
+        >
+          <defs>
+            <clipPath id="nw-reveal">
+              <rect x={PAD_L} y={0} height={VB_H} width={0}>
+                <animate
+                  attributeName="width"
+                  from="0"
+                  to={W}
+                  dur="1.1s"
+                  begin="0.05s"
+                  fill="freeze"
+                  calcMode="spline"
+                  keySplines="0.22 1 0.36 1"
+                  keyTimes="0;1"
+                  values={`0;${W}`}
+                />
+              </rect>
+            </clipPath>
+          </defs>
+
+          {yTicks.map((t) => (
+            <g key={`yt-${t}`}>
+              <line
+                x1={PAD_L}
+                x2={PAD_L + W}
+                y1={py(t)}
+                y2={py(t)}
+                stroke="currentColor"
+                strokeOpacity={0.1}
+                strokeDasharray="4 4"
+                strokeWidth={1}
+              />
+              <text
+                x={PAD_L - 8}
+                y={py(t)}
+                textAnchor="end"
+                dominantBaseline="central"
+                className="fill-current text-foreground/50"
+                fontSize={11}
+              >
+                {fmtTick(t)}
+              </text>
+            </g>
+          ))}
+
+          <line
+            x1={PAD_L}
+            x2={PAD_L + W}
+            y1={baselineY}
+            y2={baselineY}
+            stroke="currentColor"
+            strokeOpacity={0.28}
+            strokeWidth={1}
+          />
+
+          {xTicks.map((s) => (
             <text
-              x={PAD_L - 8}
-              y={py(t)}
-              textAnchor="end"
-              dominantBaseline="central"
+              key={`xt-${s}`}
+              x={px(s)}
+              y={PAD_T + H + 18}
+              textAnchor="middle"
               className="fill-current text-foreground/50"
               fontSize={11}
             >
-              {fmtTick(t)}
+              #{s}
             </text>
-          </g>
-        ))}
+          ))}
 
-        {xTicks.map((s) => (
-          <text
-            key={`xt-${s}`}
-            x={px(s)}
-            y={PAD_T + H + 18}
-            textAnchor="middle"
-            className="fill-current text-foreground/50"
-            fontSize={11}
-          >
-            #{s}
-          </text>
-        ))}
-
-        <g clipPath="url(#nw-reveal)">
-          {history.map((s, i) => {
-            const color = SERIES_COLORS[i % SERIES_COLORS.length]
-            const sorted = [...s.points].sort(
-              (a, b) => a.sessionNumber - b.sessionNumber,
-            )
-            const pts = sorted.map((p) => ({
-              x: px(p.sessionNumber),
-              y: py(p.netWorth),
-            }))
-            const linePath = smoothPath(pts)
-            const areaPath =
-              linePath +
-              ` L ${pts[pts.length - 1].x} ${PAD_T + H}` +
-              ` L ${pts[0].x} ${PAD_T + H} Z`
-            return (
-              <g key={s.agentId}>
-                <path d={areaPath} fill={`url(#grad-${s.agentId})`} />
+          <g clipPath="url(#nw-reveal)">
+            {history.map((s, i) => {
+              const color = SERIES_COLORS[i % SERIES_COLORS.length]
+              const sorted = [...s.points].sort(
+                (a, b) => a.sessionNumber - b.sessionNumber,
+              )
+              const pts = sorted.map((p) => ({
+                x: px(p.sessionNumber),
+                y: py(p.netWorth),
+              }))
+              const linePath = smoothPath(pts)
+              const dim = focus !== null && focus !== s.agentId
+              const isFocus = focus === s.agentId
+              return (
                 <path
+                  key={s.agentId}
                   d={linePath}
                   fill="none"
                   stroke={color}
-                  strokeWidth={2.2}
+                  strokeWidth={isFocus ? 3 : 2.5}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  opacity={dim ? 0.15 : 1}
+                  style={{
+                    transition:
+                      "opacity 0.15s ease-out, stroke-width 0.15s ease-out",
+                  }}
                 />
-              </g>
-            )
-          })}
-        </g>
-      </svg>
+              )
+            })}
+          </g>
+        </svg>
+      </div>
 
-      <div className="pointer-events-none absolute right-1 top-0 flex flex-wrap justify-end gap-x-3 gap-y-1 font-pixel-square text-[10px] tracking-wide text-foreground/70">
-        {history.map((s, i) => (
-          <span key={s.agentId} className="flex items-center gap-1.5">
-            <span
-              className="inline-block h-2 w-2 rounded-full"
-              style={{ background: SERIES_COLORS[i % SERIES_COLORS.length] }}
-            />
-            {s.agentName}
-          </span>
-        ))}
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 font-pixel-square text-[10px] tracking-wide text-foreground/70">
+        {history.map((s, i) => {
+          const color = SERIES_COLORS[i % SERIES_COLORS.length]
+          const dim = focus !== null && focus !== s.agentId
+          return (
+            <button
+              key={s.agentId}
+              type="button"
+              className="flex items-center gap-1.5 transition-opacity"
+              style={{ opacity: dim ? 0.4 : 1 }}
+              onMouseEnter={() => setFocus(s.agentId)}
+              onMouseLeave={() => setFocus(null)}
+            >
+              <span
+                className="inline-block h-2 w-2 rounded-full"
+                style={{ background: color }}
+              />
+              {s.agentName}
+            </button>
+          )
+        })}
       </div>
     </div>
   )
@@ -377,16 +567,18 @@ function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
   const yTop = Math.max(yMax, yTicks[yTicks.length - 1] ?? yMax)
 
   const slot = W / trades.length
-  const barW = Math.min(48, slot * 0.45)
+  const barW = Math.min(56, slot * 0.75)
 
   const py = (v: number) => PAD_T + H - (v / yTop) * H
   const xCenter = (i: number) => PAD_L + slot * (i + 0.5)
   const total = trades.reduce((s, t) => s + t.count, 0)
 
+  const labelStep = trades.length > 18 ? Math.ceil(trades.length / 12) : 1
+
   return (
-    <div className="flex h-full flex-col gap-1">
-      <div className="font-pixel-square text-[10px] tracking-wide text-foreground/50">
-        {total} trades across {trades.length} sessions
+    <div className="relative h-full w-full">
+      <div className="pointer-events-none absolute right-0 top-0 z-10 font-pixel-square text-[10px] tracking-wide text-foreground/50">
+        {total} trades · {trades.length} sessions
       </div>
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
@@ -395,8 +587,8 @@ function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
       >
         <defs>
           <linearGradient id="bar-grad" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity={0.95} />
-            <stop offset="100%" stopColor="#10b981" stopOpacity={0.25} />
+            <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
+            <stop offset="100%" stopColor="#10b981" stopOpacity={0.55} />
           </linearGradient>
         </defs>
 
@@ -429,20 +621,33 @@ function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
           const x = xCenter(i) - barW / 2
           const y = py(t.count)
           const h = PAD_T + H - y
+          const showLabel = i % labelStep === 0 || i === trades.length - 1
           return (
             <g key={t.sessionNumber}>
-              <rect
-                x={x}
-                y={y}
-                width={barW}
-                height={h}
-                rx={3}
-                fill="url(#bar-grad)"
+              <g
                 style={{
                   transformOrigin: `${xCenter(i)}px ${PAD_T + H}px`,
                   animation: `bar-grow 0.9s cubic-bezier(0.22,1,0.36,1) ${0.05 + i * 0.08}s both`,
                 }}
-              />
+              >
+                <rect
+                  x={x}
+                  y={y}
+                  width={barW}
+                  height={h}
+                  rx={2}
+                  fill="url(#bar-grad)"
+                />
+                <line
+                  x1={x}
+                  x2={x + barW}
+                  y1={y + 0.5}
+                  y2={y + 0.5}
+                  stroke="#10b981"
+                  strokeOpacity={0.9}
+                  strokeWidth={1}
+                />
+              </g>
               <text
                 x={xCenter(i)}
                 y={y - 8}
@@ -455,15 +660,17 @@ function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
               >
                 {t.count}
               </text>
-              <text
-                x={xCenter(i)}
-                y={PAD_T + H + 18}
-                textAnchor="middle"
-                className="fill-current text-foreground/50"
-                fontSize={11}
-              >
-                #{t.sessionNumber}
-              </text>
+              {showLabel && (
+                <text
+                  x={xCenter(i)}
+                  y={PAD_T + H + 18}
+                  textAnchor="middle"
+                  className="fill-current text-foreground/50"
+                  fontSize={11}
+                >
+                  #{t.sessionNumber}
+                </text>
+              )}
             </g>
           )
         })}
