@@ -1,0 +1,81 @@
+"use client"
+
+import { useEffect, useState } from "react"
+
+import { cn } from "@/lib/utils"
+
+interface Asset {
+  id: string
+  symbol: string
+  name: string
+  assetType: "crypto" | "stock"
+  currentPrice: number
+}
+
+const fmtPrice = (n: number) => {
+  if (n >= 1000) return `$${n.toLocaleString("en-US", { maximumFractionDigits: 0 })}`
+  if (n >= 1) return `$${n.toLocaleString("en-US", { maximumFractionDigits: 2 })}`
+  return `$${n.toLocaleString("en-US", { maximumFractionDigits: 6 })}`
+}
+
+export function AssetTicker({ className }: { className?: string }) {
+  const [assets, setAssets] = useState<Asset[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      fetch("/api/assets")
+        .then((r) => r.json() as Promise<Asset[]>)
+        .then((data) => {
+          if (!cancelled) setAssets(data)
+        })
+        .catch(() => {})
+    load()
+    const id = setInterval(load, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(id)
+    }
+  }, [])
+
+  if (!assets || assets.length === 0) return null
+
+  const items = [...assets, ...assets]
+  const duration = `${Math.max(40, assets.length * 4)}s`
+
+  return (
+    <div
+      className={cn(
+        "group relative h-full w-full overflow-hidden",
+        "[mask-image:linear-gradient(to_right,transparent,black_4%,black_96%,transparent)]",
+        className,
+      )}
+      aria-label="Live asset prices"
+    >
+      <div
+        className="animate-ticker flex h-full w-max items-center gap-8 group-hover:[animation-play-state:paused]"
+        style={{ "--duration": duration } as React.CSSProperties}
+      >
+        {items.map((a, i) => (
+          <div
+            key={`${a.id}-${i}`}
+            className="flex items-center gap-2 font-pixel-square text-xs tracking-wide"
+          >
+            <span className="text-foreground/90">{a.symbol}</span>
+            <span className="text-foreground/50">{fmtPrice(a.currentPrice)}</span>
+            <span
+              className={cn(
+                "text-[9px] uppercase tracking-wider",
+                a.assetType === "crypto"
+                  ? "text-amber-500/70"
+                  : "text-sky-500/70",
+              )}
+            >
+              {a.assetType === "crypto" ? "CRY" : "STK"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
