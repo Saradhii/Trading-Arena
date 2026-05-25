@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getMarketOverview, getAssetPrice } from "../tools/trading";
+import { refreshAssetPrices } from "../services/market-data";
 import { assets } from "../db/schema";
 import { and, eq } from "drizzle-orm";
 import { AppType } from "../middleware";
@@ -11,6 +12,12 @@ assetRoutes.get("/", async (c) => {
   const db = c.get("db");
   const assets = await getMarketOverview(db);
   return c.json(assets);
+});
+
+assetRoutes.post("/refresh", async (c) => {
+  const db = c.get("db");
+  const result = await refreshAssetPrices(c.env, db);
+  return c.json(result);
 });
 
 assetRoutes.post("/", async (c) => {

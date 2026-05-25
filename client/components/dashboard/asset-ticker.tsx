@@ -10,6 +10,7 @@ interface Asset {
   name: string
   assetType: "crypto" | "stock"
   currentPrice: number
+  logoUrl: string | null
 }
 
 const fmtPrice = (n: number) => {
@@ -61,6 +62,27 @@ export function AssetTicker({ className }: { className?: string }) {
             key={`${a.id}-${i}`}
             className="flex items-center gap-2 font-pixel-square text-xs tracking-wide"
           >
+            {a.logoUrl ? (
+              <img
+                src={a.logoUrl}
+                alt=""
+                width={16}
+                height={16}
+                loading="lazy"
+                decoding="async"
+                className={cn(
+                  "h-4 w-4 shrink-0 rounded-full object-contain",
+                  a.assetType === "stock" && "bg-white p-[1px]",
+                )}
+              />
+            ) : (
+              <span
+                aria-hidden
+                className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-foreground/10 text-[7px] text-foreground/60"
+              >
+                {a.symbol.slice(0, 2)}
+              </span>
+            )}
             <span className="text-foreground/90">{a.symbol}</span>
             <span className="text-foreground/50">{fmtPrice(a.currentPrice)}</span>
             <span

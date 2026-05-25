@@ -46,6 +46,7 @@ export const assets = sqliteTable(
     exchange: text("exchange"),
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     currentPrice: real("current_price").notNull(),
+    logoUrl: text("logo_url"),
     createdAt: integer("created_at", { mode: "timestamp" })
       .notNull()
       .default(sql`(unixepoch())`)

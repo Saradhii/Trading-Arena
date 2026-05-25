@@ -8,16 +8,23 @@ interface PriceQuote {
   externalId: string;
   ok: boolean;
   price?: number;
+  logoUrl?: string;
   error?: string;
 }
 
-interface CoinGeckoResponse {
-  [externalId: string]: { usd?: number };
+interface CoinGeckoMarket {
+  id: string;
+  current_price?: number;
+  image?: string;
 }
 
 interface FinnhubQuote {
   c?: number;
   t?: number;
+}
+
+interface FinnhubProfile {
+  logo?: string;
 }
 
 type EnabledAsset = typeof assets.$inferSelect;
@@ -29,7 +36,7 @@ async function getCryptoPrices(
   if (enabled.length === 0) return [];
 
   const ids = enabled.map((a) => a.externalId).join(",");
-  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${encodeURIComponent(ids)}&vs_currencies=usd`;
+  const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(ids)}&per_page=${enabled.length}&sparkline=false`;
 
   const headers: Record<string, string> = {
     "User-Agent": "trading-arena/1.0 (https://trading-arena.app)",
@@ -39,7 +46,7 @@ async function getCryptoPrices(
     headers["x-cg-demo-api-key"] = env.COINGECKO_API_KEY;
   }
 
-  let data: CoinGeckoResponse = {};
+  let data: CoinGeckoMarket[] = [];
   let fetchError: string | undefined;
 
   try {
@@ -47,20 +54,22 @@ async function getCryptoPrices(
     if (!response.ok) {
       fetchError = `CoinGecko ${response.status}: ${(await response.text()).slice(0, 200)}`;
     } else {
-      data = (await response.json()) as CoinGeckoResponse;
+      data = (await response.json()) as CoinGeckoMarket[];
     }
   } catch (err) {
     fetchError = err instanceof Error ? err.message : "fetch failed";
   }
 
+  const byId = new Map(data.map((m) => [m.id, m]));
+
   return enabled.map((a) => {
     const base = { assetId: a.id, symbol: a.symbol, externalId: a.externalId };
     if (fetchError) return { ...base, ok: false, error: fetchError };
-    const entry = data[a.externalId];
-    if (!entry || typeof entry.usd !== "number") {
+    const entry = byId.get(a.externalId);
+    if (!entry || typeof entry.current_price !== "number") {
       return { ...base, ok: false, error: "missing in CoinGecko response" };
     }
-    return { ...base, ok: true, price: entry.usd };
+    return { ...base, ok: true, price: entry.current_price, logoUrl: entry.image };
   });
 }
 
@@ -83,9 +92,18 @@ async function getStockPrices(
   return Promise.all(
     enabled.map(async (a): Promise<PriceQuote> => {
       const base = { assetId: a.id, symbol: a.symbol, externalId: a.externalId };
-      const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(a.externalId)}&token=${env.FINNHUB_API_KEY}`;
+      const quoteUrl = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(a.externalId)}&token=${env.FINNHUB_API_KEY}`;
+
+      const logoFetch: Promise<string | undefined> = a.logoUrl
+        ? Promise.resolve(a.logoUrl)
+        : fetch(
+            `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(a.externalId)}&token=${env.FINNHUB_API_KEY}`,
+          )
+            .then(async (r) => (r.ok ? ((await r.json()) as FinnhubProfile).logo : undefined))
+            .catch(() => undefined);
+
       try {
-        const response = await fetch(url);
+        const [response, logoUrl] = await Promise.all([fetch(quoteUrl), logoFetch]);
         if (!response.ok) {
           return {
             ...base,
@@ -101,7 +119,7 @@ async function getStockPrices(
             error: "Finnhub returned 0 or missing price (symbol unknown or market closed without prior data)",
           };
         }
-        return { ...base, ok: true, price: data.c };
+        return { ...base, ok: true, price: data.c, logoUrl: logoUrl || undefined };
       } catch (err) {
         return { ...base, ok: false, error: err instanceof Error ? err.message : "fetch failed" };
       }
@@ -137,7 +155,9 @@ export async function refreshAssetPrices(
       failures.push({ symbol: q.symbol, error: q.error ?? "unknown" });
       continue;
     }
-    await db.update(assets).set({ currentPrice: q.price }).where(eq(assets.id, q.assetId));
+    const patch: { currentPrice: number; logoUrl?: string } = { currentPrice: q.price };
+    if (q.logoUrl) patch.logoUrl = q.logoUrl;
+    await db.update(assets).set(patch).where(eq(assets.id, q.assetId));
     updated += 1;
   }
 
