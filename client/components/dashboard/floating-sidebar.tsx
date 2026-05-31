@@ -28,12 +28,28 @@ export function FloatingSidebar() {
         <Link
           href="/"
           aria-label="Trading Arena home"
-          className={cn(
-            NAV_LINK_BASE,
-            "border border-dotted border-foreground/20 text-center text-foreground/70 hover:border-foreground/40 hover:bg-foreground/5 hover:text-foreground",
-          )}
+          className="group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors hover:bg-foreground/5"
         >
-          Trading Arena
+          <span className="relative inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground text-background">
+            <svg aria-hidden viewBox="0 0 32 24" className="size-5" fill="none">
+              <polyline
+                points="2,19 9,13 14,16 22,6 30,10"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <circle cx="22" cy="6" r="2.5" fill="currentColor" />
+            </svg>
+          </span>
+          <span className="flex items-baseline gap-1.5 leading-none">
+            <span className="font-mono text-[15px] font-semibold tracking-tight text-foreground">
+              trading
+            </span>
+            <span className="font-mono text-[15px] font-semibold tracking-tight text-foreground/45">
+              /arena
+            </span>
+          </span>
         </Link>
       </div>
 

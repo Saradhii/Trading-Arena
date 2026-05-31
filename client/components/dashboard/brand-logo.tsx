@@ -22,7 +22,6 @@ type IconComponent = React.ComponentType<{ size?: number }>
 type BrandEntry = { color?: IconComponent; mono: IconComponent }
 
 const BRANDS: Record<string, BrandEntry> = {
-  // inference providers
   groq: { mono: Groq },
   cerebras: { color: Cerebras.Color, mono: Cerebras },
   sambanova: { color: SambaNova.Color, mono: SambaNova },
@@ -30,7 +29,6 @@ const BRANDS: Record<string, BrandEntry> = {
   openrouter: { mono: OpenRouter },
   zai: { mono: ZAI },
   google: { color: Google.Color, mono: Google },
-  // model-family / parent companies
   openai: { mono: OpenAI },
   meta: { color: Meta.Color, mono: Meta },
   alibaba: { color: Alibaba.Color, mono: Alibaba },

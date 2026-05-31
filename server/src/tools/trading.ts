@@ -5,6 +5,7 @@ import { getAgentByIdOrThrow, getAssetBySymbolOrThrow } from "../helpers";
 
 type Agent = typeof aiAgents.$inferSelect;
 type Asset = typeof assets.$inferSelect;
+type HoldingWithAsset = typeof holdings.$inferSelect & { asset: Asset };
 
 async function createOrder(
   db: Database,
@@ -31,62 +32,7 @@ async function createOrder(
   return order;
 }
 
-export async function getAgentsWithPortfolios(db: Database) {
-  const agents = await db.query.aiAgents.findMany();
-
-  const [latestLog] = await db.query.sessionLogs.findMany({
-    orderBy: desc(sessionLogs.createdAt),
-    limit: 1,
-  });
-  const latestSessionId = latestLog?.sessionId ?? null;
-
-  const participants = latestSessionId
-    ? await db.query.sessionLogs.findMany({
-        where: and(
-          eq(sessionLogs.sessionId, latestSessionId),
-          eq(sessionLogs.status, "success"),
-        ),
-      })
-    : [];
-  const activeAgentIds = new Set(participants.map((l) => l.agentId));
-
-  const agentsWithPortfolio = await Promise.all(
-    agents.map(async (agent) => {
-      const active = activeAgentIds.has(agent.id);
-      try {
-        const portfolio = await getPortfolio(db, agent.id);
-        return {
-          ...agent,
-          portfolioValue: portfolio.portfolioValue,
-          netWorth: portfolio.netWorth,
-          cashBalance: portfolio.cashBalance,
-          holdings: portfolio.holdings,
-          active,
-        };
-      } catch {
-        return {
-          ...agent,
-          portfolioValue: 0,
-          netWorth: agent.cashBalance,
-          cashBalance: agent.cashBalance,
-          holdings: [],
-          active,
-        };
-      }
-    })
-  );
-
-  return agentsWithPortfolio;
-}
-
-export async function getPortfolio(db: Database, agentId: string) {
-  const agent = await getAgentByIdOrThrow(db, agentId);
-
-  const agentHoldings = await db.query.holdings.findMany({
-    where: eq(holdings.agentId, agent.id),
-    with: { asset: true },
-  });
-
+function computePortfolio(agent: Agent, agentHoldings: HoldingWithAsset[]) {
   let portfolioValue = 0;
   const holdingsWithValues = agentHoldings.map((h) => {
     const currentValue = h.quantity * h.asset.currentPrice;
@@ -110,6 +56,59 @@ export async function getPortfolio(db: Database, agentId: string) {
     netWorth: agent.cashBalance + portfolioValue,
     holdings: holdingsWithValues,
   };
+}
+
+export async function getAgentsWithPortfolios(db: Database) {
+  const agents = await db.query.aiAgents.findMany();
+
+  const [latestLog] = await db.query.sessionLogs.findMany({
+    orderBy: desc(sessionLogs.createdAt),
+    limit: 1,
+  });
+  const latestSessionId = latestLog?.sessionId ?? null;
+
+  const participants = latestSessionId
+    ? await db.query.sessionLogs.findMany({
+        where: and(
+          eq(sessionLogs.sessionId, latestSessionId),
+          eq(sessionLogs.status, "success"),
+        ),
+      })
+    : [];
+  const activeAgentIds = new Set(participants.map((l) => l.agentId));
+
+  const allHoldings = (await db.query.holdings.findMany({
+    with: { asset: true },
+  })) as HoldingWithAsset[];
+  const holdingsByAgent = new Map<string, HoldingWithAsset[]>();
+  for (const h of allHoldings) {
+    const list = holdingsByAgent.get(h.agentId);
+    if (list) list.push(h);
+    else holdingsByAgent.set(h.agentId, [h]);
+  }
+
+  return agents.map((agent) => {
+    const portfolio = computePortfolio(agent, holdingsByAgent.get(agent.id) ?? []);
+    return {
+      ...agent,
+      portfolioValue: portfolio.portfolioValue,
+      netWorth: portfolio.netWorth,
+      cashBalance: portfolio.cashBalance,
+      holdings: portfolio.holdings,
+      active: activeAgentIds.has(agent.id),
+    };
+  });
+}
+
+export async function getPortfolio(db: Database, agentId: string, preloadedAgent?: Agent) {
+  const agent = preloadedAgent ?? (await getAgentByIdOrThrow(db, agentId));
+
+  const agentHoldings = (await db.query.holdings.findMany({
+    where: eq(holdings.agentId, agent.id),
+    with: { asset: true },
+  })) as HoldingWithAsset[];
+
+  return computePortfolio(agent, agentHoldings);
 }
 
 export async function getAssetPrice(db: Database, symbol: string) {

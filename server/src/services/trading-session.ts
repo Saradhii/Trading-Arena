@@ -121,6 +121,7 @@ async function runAgentSession(
   env: Env,
   agent: typeof aiAgents.$inferSelect,
   sessionId: string,
+  market: Awaited<ReturnType<typeof getMarketOverview>>,
 ): Promise<AgentSessionResult> {
   const startTime = Date.now();
 
@@ -138,8 +139,7 @@ async function runAgentSession(
   };
 
   try {
-    const portfolio = await getPortfolio(db, agent.id);
-    const market = await getMarketOverview(db);
+    const portfolio = await getPortfolio(db, agent.id, agent);
 
     const systemPrompt = buildSystemPrompt(agent.agentName, portfolio, market);
 
@@ -246,6 +246,8 @@ export async function runTradingSession(env: Env): Promise<SessionRunResult> {
 
   const agents = await db.query.aiAgents.findMany();
 
+  const market = await getMarketOverview(db);
+
   const byProvider = new Map<string, typeof agents>();
   for (const agent of agents) {
     const list = byProvider.get(agent.provider) ?? [];
@@ -262,7 +264,7 @@ export async function runTradingSession(env: Env): Promise<SessionRunResult> {
       const groupStart = Date.now();
       const out: AgentSessionResult[] = [];
       for (const agent of providerAgents) {
-        out.push(await runAgentSession(db, env, agent, sessionId));
+        out.push(await runAgentSession(db, env, agent, sessionId, market));
       }
       const skipped = out.filter((r) => r.failureReason === "rate_limited").length;
       if (skipped > 0) {

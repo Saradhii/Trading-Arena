@@ -147,9 +147,9 @@ export async function refreshAssetPrices(
     getStockPrices(env, stockAssets),
   ]);
 
-  let updated = 0;
   const failures: Array<{ symbol: string; error: string }> = [];
 
+  const updateStatements: Parameters<typeof db.batch>[0][number][] = [];
   for (const q of [...cryptoQuotes, ...stockQuotes]) {
     if (!q.ok || typeof q.price !== "number") {
       failures.push({ symbol: q.symbol, error: q.error ?? "unknown" });
@@ -157,9 +157,13 @@ export async function refreshAssetPrices(
     }
     const patch: { currentPrice: number; logoUrl?: string } = { currentPrice: q.price };
     if (q.logoUrl) patch.logoUrl = q.logoUrl;
-    await db.update(assets).set(patch).where(eq(assets.id, q.assetId));
-    updated += 1;
+    updateStatements.push(db.update(assets).set(patch).where(eq(assets.id, q.assetId)));
   }
+
+  if (updateStatements.length > 0) {
+    await db.batch(updateStatements as unknown as Parameters<typeof db.batch>[0]);
+  }
+  const updated = updateStatements.length;
 
   return {
     crypto: {

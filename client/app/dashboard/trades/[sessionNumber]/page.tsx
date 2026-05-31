@@ -324,7 +324,6 @@ export default function SessionDetailPage({
         )}
       </div>
 
-      {/* Agent Activity */}
       {decisions && logs && (
         <div className="flex flex-col gap-2">
           <h2 className="font-pixel-square text-sm uppercase tracking-wider text-foreground/60">

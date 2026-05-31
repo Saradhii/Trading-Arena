@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const tradingSessions = sqliteTable("trading_sessions", {
@@ -78,7 +78,12 @@ export const orders = sqliteTable("orders", {
     .default(sql`(unixepoch())`)
     .$defaultFn(() => new Date())
     .$onUpdateFn(() => new Date()),
-});
+}, (t) => ({
+  agentIdx: index("orders_agent_idx").on(t.agentId),
+  assetIdx: index("orders_asset_idx").on(t.assetId),
+  sessionIdx: index("orders_session_idx").on(t.sessionId),
+  createdAtIdx: index("orders_created_at_idx").on(t.createdAt),
+}));
 
 export const holdings = sqliteTable("holdings", {
   id: text("id").primaryKey(),
@@ -95,7 +100,9 @@ export const holdings = sqliteTable("holdings", {
     .default(sql`(unixepoch())`)
     .$defaultFn(() => new Date())
     .$onUpdateFn(() => new Date()),
-});
+}, (t) => ({
+  agentAssetIdx: index("holdings_agent_asset_idx").on(t.agentId, t.assetId),
+}));
 
 export const netWorthSnapshots = sqliteTable("net_worth_snapshots", {
   id: text("id").primaryKey(),
@@ -110,7 +117,9 @@ export const netWorthSnapshots = sqliteTable("net_worth_snapshots", {
     .default(sql`(unixepoch())`)
     .$defaultFn(() => new Date())
     .$onUpdateFn(() => new Date()),
-});
+}, (t) => ({
+  agentIdx: index("net_worth_snapshots_agent_idx").on(t.agentId),
+}));
 
 export const agentDecisions = sqliteTable(
   "agent_decisions",
@@ -152,4 +161,7 @@ export const sessionLogs = sqliteTable("session_logs", {
     .default(sql`(unixepoch())`)
     .$defaultFn(() => new Date())
     .$onUpdateFn(() => new Date()),
-});
+}, (t) => ({
+  sessionIdx: index("session_logs_session_idx").on(t.sessionId),
+  createdAtIdx: index("session_logs_created_at_idx").on(t.createdAt),
+}));
