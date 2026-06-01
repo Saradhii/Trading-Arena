@@ -1,11 +1,14 @@
 import { relations } from "drizzle-orm";
 import {
   agentDecisions,
+  agentMemory,
   aiAgents,
   assets,
   holdings,
   netWorthSnapshots,
   orders,
+  priceHistory,
+  ratingHistory,
   sessionLogs,
   tradingSessions,
 } from "./schema";
@@ -16,11 +19,28 @@ export const aiAgentsRelations = relations(aiAgents, ({ many }) => ({
   snapshots: many(netWorthSnapshots),
   decisions: many(agentDecisions),
   sessionLogs: many(sessionLogs),
+  memory: many(agentMemory),
+}));
+
+export const agentMemoryRelations = relations(agentMemory, ({ one }) => ({
+  agent: one(aiAgents, { fields: [agentMemory.agentId], references: [aiAgents.id] }),
+  session: one(tradingSessions, { fields: [agentMemory.sessionId], references: [tradingSessions.id] }),
+}));
+
+export const ratingHistoryRelations = relations(ratingHistory, ({ one }) => ({
+  agent: one(aiAgents, { fields: [ratingHistory.agentId], references: [aiAgents.id] }),
+  session: one(tradingSessions, { fields: [ratingHistory.sessionId], references: [tradingSessions.id] }),
 }));
 
 export const assetsRelations = relations(assets, ({ many }) => ({
   holdings: many(holdings),
   orders: many(orders),
+  priceHistory: many(priceHistory),
+}));
+
+export const priceHistoryRelations = relations(priceHistory, ({ one }) => ({
+  asset: one(assets, { fields: [priceHistory.assetId], references: [assets.id] }),
+  session: one(tradingSessions, { fields: [priceHistory.sessionId], references: [tradingSessions.id] }),
 }));
 
 export const tradingSessionsRelations = relations(tradingSessions, ({ many }) => ({

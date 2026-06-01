@@ -1,6 +1,28 @@
-import { eq } from "drizzle-orm";
+import { eq, desc, inArray } from "drizzle-orm";
 import type { Database } from "../db";
-import { assets } from "../db/schema";
+import { assets, priceHistory } from "../db/schema";
+
+export async function getRecentPriceHistory(
+  db: Database,
+  symbols: string[],
+  limit = 30,
+): Promise<Record<string, Array<{ timestamp: number; price: number }>>> {
+  if (symbols.length === 0) return {};
+  const rows = await db.query.priceHistory.findMany({
+    where: inArray(priceHistory.symbol, symbols),
+    orderBy: desc(priceHistory.recordedAt),
+  });
+
+  const bySymbol: Record<string, Array<{ timestamp: number; price: number }>> = {};
+  for (const r of rows) {
+    const list = (bySymbol[r.symbol] ??= []);
+    if (list.length >= limit) continue;
+    list.push({ timestamp: r.recordedAt.getTime(), price: r.price });
+  }
+
+  for (const sym of Object.keys(bySymbol)) bySymbol[sym].reverse();
+  return bySymbol;
+}
 
 interface PriceQuote {
   assetId: string;
@@ -150,6 +172,7 @@ export async function refreshAssetPrices(
   const failures: Array<{ symbol: string; error: string }> = [];
 
   const updateStatements: Parameters<typeof db.batch>[0][number][] = [];
+  const historyStatements: Parameters<typeof db.batch>[0][number][] = [];
   for (const q of [...cryptoQuotes, ...stockQuotes]) {
     if (!q.ok || typeof q.price !== "number") {
       failures.push({ symbol: q.symbol, error: q.error ?? "unknown" });
@@ -158,10 +181,20 @@ export async function refreshAssetPrices(
     const patch: { currentPrice: number; logoUrl?: string } = { currentPrice: q.price };
     if (q.logoUrl) patch.logoUrl = q.logoUrl;
     updateStatements.push(db.update(assets).set(patch).where(eq(assets.id, q.assetId)));
+    historyStatements.push(
+      db.insert(priceHistory).values({
+        id: crypto.randomUUID(),
+        assetId: q.assetId,
+        symbol: q.symbol,
+        price: q.price,
+      }),
+    );
   }
 
   if (updateStatements.length > 0) {
-    await db.batch(updateStatements as unknown as Parameters<typeof db.batch>[0]);
+    await db.batch(
+      [...updateStatements, ...historyStatements] as unknown as Parameters<typeof db.batch>[0],
+    );
   }
   const updated = updateStatements.length;
 

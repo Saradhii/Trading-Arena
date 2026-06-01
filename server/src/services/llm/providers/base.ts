@@ -16,9 +16,12 @@ export abstract class BaseLLMProvider {
     const body: Record<string, unknown> = {
       model,
       messages,
-      tools,
-      tool_choice: "auto",
     };
+
+    if (tools.length > 0) {
+      body.tools = tools;
+      body.tool_choice = "auto";
+    }
 
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: "POST",

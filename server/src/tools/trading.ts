@@ -2,6 +2,8 @@ import { eq, and, desc } from "drizzle-orm";
 import type { Database } from "../db";
 import { aiAgents, assets, holdings, orders, netWorthSnapshots, sessionLogs } from "../db/schema";
 import { getAgentByIdOrThrow, getAssetBySymbolOrThrow } from "../helpers";
+import { computeFill } from "../services/fills";
+import type { Fill } from "../services/fills";
 
 type Agent = typeof aiAgents.$inferSelect;
 type Asset = typeof assets.$inferSelect;
@@ -15,6 +17,7 @@ async function createOrder(
   orderType: "market_buy" | "market_sell",
   quantity: number,
   reasoning: string,
+  fill: Fill,
 ) {
   const [order] = await db
     .insert(orders)
@@ -26,6 +29,9 @@ async function createOrder(
       orderType,
       quantity,
       priceAtOrder: asset.currentPrice,
+      effectivePrice: fill.effectivePrice,
+      feePaid: fill.feePaid,
+      slippageBps: fill.slippageBps,
       reasoning,
     })
     .returning();
@@ -131,7 +137,8 @@ export async function marketBuy(
   const agent = await getAgentByIdOrThrow(db, agentId);
   const asset = await getAssetBySymbolOrThrow(db, assetSymbol);
 
-  const totalCost = quantity * asset.currentPrice;
+  const fill = computeFill("buy", asset.currentPrice, quantity);
+  const totalCost = fill.cashDelta;
   if (agent.cashBalance < totalCost) throw new Error("Insufficient funds");
 
   await db.update(aiAgents).set({ cashBalance: agent.cashBalance - totalCost }).where(eq(aiAgents.id, agent.id));
@@ -142,8 +149,9 @@ export async function marketBuy(
 
   if (existingHolding) {
     const newQuantity = existingHolding.quantity + quantity;
+
     const newAvgPrice =
-      (existingHolding.averageBuyPrice * existingHolding.quantity + asset.currentPrice * quantity) / newQuantity;
+      (existingHolding.averageBuyPrice * existingHolding.quantity + fill.effectivePrice * quantity) / newQuantity;
     await db
       .update(holdings)
       .set({ quantity: newQuantity, averageBuyPrice: newAvgPrice })
@@ -154,11 +162,11 @@ export async function marketBuy(
       agentId: agent.id,
       assetId: asset.id,
       quantity,
-      averageBuyPrice: asset.currentPrice,
+      averageBuyPrice: fill.effectivePrice,
     });
   }
 
-  return createOrder(db, agent, asset, sessionId, "market_buy", quantity, reasoning);
+  return createOrder(db, agent, asset, sessionId, "market_buy", quantity, reasoning, fill);
 }
 
 export async function marketSell(
@@ -177,7 +185,8 @@ export async function marketSell(
   });
   if (!holding || holding.quantity < quantity) throw new Error("Insufficient holdings");
 
-  const totalValue = quantity * asset.currentPrice;
+  const fill = computeFill("sell", asset.currentPrice, quantity);
+  const totalValue = fill.cashDelta;
 
   await db.update(aiAgents).set({ cashBalance: agent.cashBalance + totalValue }).where(eq(aiAgents.id, agent.id));
 
@@ -188,7 +197,7 @@ export async function marketSell(
     await db.update(holdings).set({ quantity: newQuantity }).where(eq(holdings.id, holding.id));
   }
 
-  return createOrder(db, agent, asset, sessionId, "market_sell", quantity, reasoning);
+  return createOrder(db, agent, asset, sessionId, "market_sell", quantity, reasoning, fill);
 }
 
 export async function snapshotNetWorth(db: Database, agentId: string, sessionId: string) {
