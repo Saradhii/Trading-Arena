@@ -24,14 +24,14 @@ export function FloatingSidebar() {
 
   return (
     <>
-      <div aria-label="Quick links" className={cn(PANEL_CLASS, "top-4")}>
+      <div aria-label="Quick links" className={cn(PANEL_CLASS, "top-4 flex h-[66px] items-center")}>
         <Link
           href="/"
           aria-label="Trading Arena home"
-          className="group relative flex items-center gap-2.5 rounded-xl px-3 py-2.5 transition-colors hover:bg-foreground/5"
+          className="group relative flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 transition-colors hover:bg-foreground/5"
         >
-          <span className="relative inline-flex size-7 shrink-0 items-center justify-center rounded-md bg-foreground text-background">
-            <svg aria-hidden viewBox="0 0 32 24" className="size-5" fill="none">
+          <span className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-foreground text-background">
+            <svg aria-hidden viewBox="0 0 32 24" className="size-4" fill="none">
               <polyline
                 points="2,19 9,13 14,16 22,6 30,10"
                 stroke="currentColor"
