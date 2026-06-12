@@ -3,8 +3,11 @@
 import { useEffect, useMemo, useState } from "react"
 
 import { cn } from "@/lib/utils"
+import { excludeBaselineAgents, isBaselineAgent } from "@/lib/agents"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BrandLogo } from "@/components/dashboard/brand-logo"
+import { AssetLogo } from "@/components/dashboard/asset-logo"
+import { OrderDetailSheet } from "@/components/dashboard/order-detail-sheet"
 import {
   Table,
   TableBody,
@@ -35,6 +38,7 @@ interface OrderAsset {
   name: string
   assetType: "crypto" | "stock"
   currentPrice: number
+  logoUrl: string | null
 }
 
 interface OrderSession {
@@ -107,6 +111,7 @@ export default function HistoryPage() {
   const [agentId, setAgentId] = useState<string>("")
   const [assetId, setAssetId] = useState<string>("")
   const [page, setPage] = useState(1)
+  const [selected, setSelected] = useState<Order | null>(null)
 
   useEffect(() => {
     fetch("/api/orders/filters")
@@ -114,7 +119,9 @@ export default function HistoryPage() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return (await r.json()) as FiltersResponse
       })
-      .then(setFilters)
+      .then((f) =>
+        setFilters({ ...f, agents: excludeBaselineAgents(f.agents) }),
+      )
       .catch(() => {})
   }, [])
 
@@ -139,7 +146,8 @@ export default function HistoryPage() {
         return (await r.json()) as OrdersResponse
       })
       .then((d) => {
-        if (!cancelled) setData(d)
+        if (!cancelled)
+          setData({ ...d, orders: d.orders.filter((o) => !isBaselineAgent(o.agent)) })
       })
       .catch((err) => {
         if (!cancelled) setError(err.message ?? "Failed to fetch")
@@ -170,7 +178,7 @@ export default function HistoryPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-full flex-1 lg:min-w-0">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
           <input
             value={search}
@@ -240,7 +248,7 @@ export default function HistoryPage() {
           <Table>
             <TableHeader>
               <TableRow className="border-foreground/10 hover:bg-transparent">
-                <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-[10px] uppercase tracking-wider md:table-cell">
                   Time
                 </TableHead>
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
@@ -252,19 +260,19 @@ export default function HistoryPage() {
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
                   Asset
                 </TableHead>
-                <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-right text-[10px] uppercase tracking-wider sm:table-cell">
                   Qty
                 </TableHead>
-                <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-right text-[10px] uppercase tracking-wider lg:table-cell">
                   Price
                 </TableHead>
                 <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
                   Notional
                 </TableHead>
-                <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-right text-[10px] uppercase tracking-wider lg:table-cell">
                   Session
                 </TableHead>
-                <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-[10px] uppercase tracking-wider md:table-cell">
                   Reasoning
                 </TableHead>
               </TableRow>
@@ -274,8 +282,12 @@ export default function HistoryPage() {
                 const isBuy = o.orderType === "market_buy"
                 const notional = o.quantity * o.priceAtOrder
                 return (
-                  <TableRow key={o.id} className="border-foreground/5">
-                    <TableCell className="font-pixel-square text-xs text-foreground/60">
+                  <TableRow
+                    key={o.id}
+                    className="cursor-pointer border-foreground/5"
+                    onClick={() => setSelected(o)}
+                  >
+                    <TableCell className="font-pixel-square hidden text-xs text-foreground/60 md:table-cell">
                       {fmtTime(o.executedAt)}
                     </TableCell>
                     <TableCell>
@@ -307,28 +319,31 @@ export default function HistoryPage() {
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="font-pixel-square text-xs text-foreground">
-                          {o.asset.symbol}
-                        </span>
-                        <span className="font-pixel-square truncate text-[10px] tracking-wide text-foreground/40">
-                          {o.asset.assetType}
-                        </span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <AssetLogo asset={o.asset} />
+                        <div className="flex min-w-0 flex-col">
+                          <span className="font-pixel-square text-xs text-foreground">
+                            {o.asset.symbol}
+                          </span>
+                          <span className="font-pixel-square truncate text-[10px] tracking-wide text-foreground/40">
+                            {o.asset.assetType}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-pixel-square text-right text-xs text-foreground">
+                    <TableCell className="font-pixel-square hidden text-right text-xs text-foreground sm:table-cell">
                       {fmtQty(o.quantity)}
                     </TableCell>
-                    <TableCell className="font-pixel-square text-right text-xs text-foreground/80">
+                    <TableCell className="font-pixel-square hidden text-right text-xs text-foreground/80 lg:table-cell">
                       {fmtUSD(o.priceAtOrder)}
                     </TableCell>
                     <TableCell className="font-pixel-square text-right text-xs text-foreground">
                       {fmtUSD(notional)}
                     </TableCell>
-                    <TableCell className="font-pixel-square text-right text-xs text-foreground/60">
+                    <TableCell className="font-pixel-square hidden text-right text-xs text-foreground/60 lg:table-cell">
                       #{o.session.sessionNumber}
                     </TableCell>
-                    <TableCell className="max-w-[320px]">
+                    <TableCell className="hidden max-w-[320px] md:table-cell">
                       <span
                         title={o.reasoning ?? ""}
                         className="font-pixel-square line-clamp-1 text-xs text-foreground/60"
@@ -368,6 +383,15 @@ export default function HistoryPage() {
           </div>
         </div>
       ) : null}
+
+      {selected ? (
+        <OrderDetailSheet
+          order={selected}
+          sessionNumber={selected.session.sessionNumber}
+          linkToSession
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
     </div>
   )
 }
@@ -392,7 +416,7 @@ function FilterSelect({
     >
       <SelectTrigger
         size="sm"
-        className="font-pixel-square min-w-[10rem] rounded-xl border-0 bg-background/40 text-xs tracking-wide ring-1 ring-black/5 hover:bg-background/40 focus-visible:ring-foreground/30 dark:bg-background/40 dark:ring-white/10 dark:hover:bg-background/40"
+        className="font-pixel-square min-w-[10rem] flex-1 rounded-xl border-0 bg-background/40 text-xs tracking-wide ring-1 ring-black/5 hover:bg-background/40 focus-visible:ring-foreground/30 sm:flex-none dark:bg-background/40 dark:ring-white/10 dark:hover:bg-background/40"
       >
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>

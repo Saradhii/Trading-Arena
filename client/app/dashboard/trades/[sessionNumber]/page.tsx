@@ -4,8 +4,14 @@ import { use, useEffect, useState } from "react"
 import Link from "next/link"
 
 import { cn } from "@/lib/utils"
+import { isBaselineAgent } from "@/lib/agents"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BrandLogo } from "@/components/dashboard/brand-logo"
+import { AssetLogo } from "@/components/dashboard/asset-logo"
+import {
+  DecisionDetailSheet,
+  OrderDetailSheet,
+} from "@/components/dashboard/order-detail-sheet"
 import {
   Table,
   TableBody,
@@ -36,6 +42,7 @@ interface OrderAsset {
   symbol: string
   name: string
   assetType: "crypto" | "stock"
+  logoUrl: string | null
 }
 
 interface SessionOrder {
@@ -111,6 +118,11 @@ export default function SessionDetailPage({
   const [decisions, setDecisions] = useState<AgentDecision[] | null>(null)
   const [logs, setLogs] = useState<SessionLog[] | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selected, setSelected] = useState<SessionOrder | null>(null)
+  const [selectedDecision, setSelectedDecision] = useState<{
+    decision: AgentDecision
+    log: SessionLog | null
+  } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -135,15 +147,15 @@ export default function SessionDetailPage({
         setSession(s)
         setOrders(
           o
-            .slice()
+            .filter((x) => !isBaselineAgent(x.agent))
             .sort(
               (a, b) =>
                 new Date(b.executedAt).getTime() -
                 new Date(a.executedAt).getTime(),
             ),
         )
-        setDecisions(d.decisions)
-        setLogs(d.logs)
+        setDecisions(d.decisions.filter((x) => !isBaselineAgent(x.agent)))
+        setLogs(d.logs.filter((x) => !isBaselineAgent(x.agent)))
       })
       .catch((err) => {
         if (!cancelled) setError(err.message ?? "Failed to fetch")
@@ -196,7 +208,7 @@ export default function SessionDetailPage({
         </div>
 
         {session ? (
-          <div className="flex gap-4 rounded-xl bg-background/40 px-4 py-2 ring-1 ring-black/5 dark:ring-white/10">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-xl bg-background/40 px-4 py-2 ring-1 ring-black/5 dark:ring-white/10">
             <Stat label="Started" value={fmtTime(session.startedAt)} />
             <Stat
               label="Completed"
@@ -226,7 +238,7 @@ export default function SessionDetailPage({
           <Table>
             <TableHeader>
               <TableRow className="border-foreground/10 hover:bg-transparent">
-                <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-[10px] uppercase tracking-wider md:table-cell">
                   Time
                 </TableHead>
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
@@ -238,16 +250,16 @@ export default function SessionDetailPage({
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
                   Asset
                 </TableHead>
-                <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-right text-[10px] uppercase tracking-wider sm:table-cell">
                   Qty
                 </TableHead>
-                <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-right text-[10px] uppercase tracking-wider lg:table-cell">
                   Price
                 </TableHead>
                 <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
                   Notional
                 </TableHead>
-                <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-[10px] uppercase tracking-wider md:table-cell">
                   Reasoning
                 </TableHead>
               </TableRow>
@@ -257,8 +269,12 @@ export default function SessionDetailPage({
                 const isBuy = o.orderType === "market_buy"
                 const notional = o.quantity * o.priceAtOrder
                 return (
-                  <TableRow key={o.id} className="border-foreground/5">
-                    <TableCell className="font-pixel-square text-xs text-foreground/60">
+                  <TableRow
+                    key={o.id}
+                    className="cursor-pointer border-foreground/5"
+                    onClick={() => setSelected(o)}
+                  >
+                    <TableCell className="font-pixel-square hidden text-xs text-foreground/60 md:table-cell">
                       {fmtTime(o.executedAt)}
                     </TableCell>
                     <TableCell>
@@ -290,25 +306,28 @@ export default function SessionDetailPage({
                       </span>
                     </TableCell>
                     <TableCell>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="font-pixel-square text-xs text-foreground">
-                          {o.asset.symbol}
-                        </span>
-                        <span className="font-pixel-square truncate text-[10px] tracking-wide text-foreground/40">
-                          {o.asset.assetType}
-                        </span>
+                      <div className="flex min-w-0 items-center gap-2">
+                        <AssetLogo asset={o.asset} />
+                        <div className="flex min-w-0 flex-col">
+                          <span className="font-pixel-square text-xs text-foreground">
+                            {o.asset.symbol}
+                          </span>
+                          <span className="font-pixel-square truncate text-[10px] tracking-wide text-foreground/40">
+                            {o.asset.assetType}
+                          </span>
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="font-pixel-square text-right text-xs text-foreground">
+                    <TableCell className="font-pixel-square hidden text-right text-xs text-foreground sm:table-cell">
                       {fmtQty(o.quantity)}
                     </TableCell>
-                    <TableCell className="font-pixel-square text-right text-xs text-foreground/80">
+                    <TableCell className="font-pixel-square hidden text-right text-xs text-foreground/80 lg:table-cell">
                       {fmtUSD(o.priceAtOrder)}
                     </TableCell>
                     <TableCell className="font-pixel-square text-right text-xs text-foreground">
                       {fmtUSD(notional)}
                     </TableCell>
-                    <TableCell className="max-w-[360px]">
+                    <TableCell className="hidden max-w-[360px] md:table-cell">
                       <span
                         title={o.reasoning ?? ""}
                         className="font-pixel-square line-clamp-1 text-xs text-foreground/60"
@@ -342,10 +361,10 @@ export default function SessionDetailPage({
                   <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
                     Status
                   </TableHead>
-                  <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                  <TableHead className="font-pixel-square hidden text-right text-[10px] uppercase tracking-wider sm:table-cell">
                     Latency
                   </TableHead>
-                  <TableHead className="font-pixel-square text-right text-[10px] uppercase tracking-wider">
+                  <TableHead className="font-pixel-square hidden text-right text-[10px] uppercase tracking-wider md:table-cell">
                     Tokens
                   </TableHead>
                   <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
@@ -357,7 +376,13 @@ export default function SessionDetailPage({
                 {decisions.map((d) => {
                   const log = logs.find((l) => l.agent.id === d.agent.id)
                   return (
-                    <TableRow key={d.id} className="border-foreground/5">
+                    <TableRow
+                      key={d.id}
+                      className="cursor-pointer border-foreground/5"
+                      onClick={() =>
+                        setSelectedDecision({ decision: d, log: log ?? null })
+                      }
+                    >
                       <TableCell>
                         <div className="flex min-w-0 items-center gap-2">
                           <BrandLogo
@@ -400,13 +425,13 @@ export default function SessionDetailPage({
                           {log?.status ?? "—"}
                         </span>
                       </TableCell>
-                      <TableCell className="font-pixel-square text-right text-xs text-foreground/60">
+                      <TableCell className="font-pixel-square hidden text-right text-xs text-foreground/60 sm:table-cell">
                         {log?.latencyMs != null ? `${(log.latencyMs / 1000).toFixed(1)}s` : "—"}
                       </TableCell>
-                      <TableCell className="font-pixel-square text-right text-xs text-foreground/60">
+                      <TableCell className="font-pixel-square hidden text-right text-xs text-foreground/60 md:table-cell">
                         {log?.tokensUsed != null ? log.tokensUsed.toLocaleString() : "—"}
                       </TableCell>
-                      <TableCell className="max-w-[400px]">
+                      <TableCell className="max-w-[200px] sm:max-w-[280px] lg:max-w-[400px]">
                         <span
                           title={d.reasoning ?? ""}
                           className="font-pixel-square line-clamp-2 text-xs text-foreground/60"
@@ -422,6 +447,22 @@ export default function SessionDetailPage({
           </div>
         </div>
       )}
+
+      {selected ? (
+        <OrderDetailSheet
+          order={selected}
+          sessionNumber={Number(sessionNumber)}
+          onClose={() => setSelected(null)}
+        />
+      ) : null}
+
+      {selectedDecision ? (
+        <DecisionDetailSheet
+          decision={selectedDecision.decision}
+          log={selectedDecision.log}
+          onClose={() => setSelectedDecision(null)}
+        />
+      ) : null}
     </div>
   )
 }

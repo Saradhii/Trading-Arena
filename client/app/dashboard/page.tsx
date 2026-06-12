@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { cn } from "@/lib/utils"
+import { excludeBaselineAgents } from "@/lib/agents"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BrandLogo } from "@/components/dashboard/brand-logo"
 
@@ -68,8 +69,8 @@ export default function DashboardPage() {
       fetch("/api/dashboard/trades-by-session").then((r) => r.json()) as Promise<TradesBySession[]>,
     ]).then(([a, h, t]) => {
       if (cancelled) return
-      setAgents(a)
-      setHistory(h)
+      setAgents(excludeBaselineAgents(a))
+      setHistory(excludeBaselineAgents(h))
       setTrades(t)
     })
     return () => {
@@ -78,7 +79,7 @@ export default function DashboardPage() {
   }, [])
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-2 grid-rows-2 gap-3">
+    <div className="grid grid-cols-1 gap-3 lg:h-full lg:min-h-0 lg:grid-cols-2 lg:grid-rows-2">
       <Panel title="Leaderboard">
         <LeaderboardTable agents={agents} />
       </Panel>
@@ -116,7 +117,7 @@ function Panel({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden rounded-xl bg-background/40 p-4 ring-1 ring-black/5 dark:ring-white/10">
+    <div className="flex min-h-[300px] min-w-0 flex-col gap-2 overflow-hidden rounded-xl bg-background/40 p-4 ring-1 ring-black/5 dark:ring-white/10 lg:min-h-0">
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-pixel-square text-[10px] uppercase tracking-wider text-foreground/40">
           {title}
@@ -169,7 +170,8 @@ function LeaderboardTable({ agents }: { agents: Agent[] | null }) {
                   up ? "text-emerald-500" : "text-red-500",
                 )}
               >
-                {fmtSignedUSD(pnl)} ({fmtPct(pnlPct)})
+                {fmtSignedUSD(pnl)}
+                <span className="hidden sm:inline"> ({fmtPct(pnlPct)})</span>
               </span>
             </li>
           )
@@ -293,15 +295,15 @@ function NetWorthSparklines({
 
   const gridCols =
     history.length >= 5
-      ? "grid-cols-3"
+      ? "grid-cols-2 xl:grid-cols-3"
       : history.length >= 3
-        ? "grid-cols-2"
+        ? "grid-cols-1 sm:grid-cols-2"
         : "grid-cols-1"
 
   return (
     <div
       className={cn(
-        "grid h-full min-h-0 auto-rows-fr gap-2",
+        "grid min-h-0 auto-rows-[110px] gap-2 lg:h-full lg:auto-rows-fr",
         gridCols,
       )}
     >
@@ -569,36 +571,77 @@ function NetWorthOverlay({
 }
 
 function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
+  const [hover, setHover] = useState<number | null>(null)
+  const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null)
+
   if (!trades) return <Skeleton className="h-full w-full" />
   if (trades.length === 0) return <EmptyChart label="No trades yet" />
 
+  const sorted = [...trades].sort((a, b) => a.sessionNumber - b.sessionNumber)
+
+  // Group sessions into at most 12 buckets so every bar is chunky and labeled
+  const bucketSize = Math.ceil(sorted.length / 12)
+  const buckets: {
+    start: number
+    end: number
+    total: number
+    sessions: number
+  }[] = []
+  for (let i = 0; i < sorted.length; i += bucketSize) {
+    const chunk = sorted.slice(i, i + bucketSize)
+    buckets.push({
+      start: chunk[0].sessionNumber,
+      end: chunk[chunk.length - 1].sessionNumber,
+      total: chunk.reduce((s, t) => s + t.count, 0),
+      sessions: chunk.length,
+    })
+  }
+
   const VB_W = 600
   const VB_H = 320
-  const PAD_L = 56
-  const PAD_R = 16
-  const PAD_T = 16
-  const PAD_B = 32
+  const PAD_L = 36
+  const PAD_R = 12
+  const PAD_T = 30
+  const PAD_B = 28
   const W = VB_W - PAD_L - PAD_R
   const H = VB_H - PAD_T - PAD_B
 
-  const maxCount = Math.max(...trades.map((t) => t.count), 1)
-  const yMax = maxCount * 1.15
-  const yTicks = niceTicks(0, yMax, 4)
-  const yTop = Math.max(yMax, yTicks[yTicks.length - 1] ?? yMax)
+  const total = sorted.reduce((s, t) => s + t.count, 0)
+  const avgPerSession = total / sorted.length
 
-  const slot = W / trades.length
-  const barW = Math.min(56, slot * 0.75)
-
+  const maxBucket = Math.max(...buckets.map((b) => b.total), 1)
+  const yTop = Math.ceil(maxBucket * 1.2)
+  const yTicks = niceTicks(0, yTop, 4).filter((t) => t > 0)
   const py = (v: number) => PAD_T + H - (v / yTop) * H
-  const xCenter = (i: number) => PAD_L + slot * (i + 0.5)
-  const total = trades.reduce((s, t) => s + t.count, 0)
 
-  const labelStep = trades.length > 18 ? Math.ceil(trades.length / 12) : 1
+  const slot = W / buckets.length
+  const barW = Math.min(48, slot * 0.62)
+  const xCenter = (i: number) => PAD_L + slot * (i + 0.5)
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const i = Math.floor(((x / rect.width) * VB_W - PAD_L) / slot)
+    if (i >= 0 && i < buckets.length) {
+      setHover(i)
+      setCursor({ x, y: e.clientY - rect.top })
+    } else {
+      setHover(null)
+      setCursor(null)
+    }
+  }
 
   return (
-    <div className="relative h-full w-full">
+    <div
+      className="relative h-full w-full"
+      onMouseMove={onMove}
+      onMouseLeave={() => {
+        setHover(null)
+        setCursor(null)
+      }}
+    >
       <div className="pointer-events-none absolute right-0 top-0 z-10 font-pixel-square text-[10px] tracking-wide text-foreground/50">
-        {total} trades · {trades.length} sessions
+        {total} trades · {sorted.length} sessions · ~{avgPerSession.toFixed(1)}/session
       </div>
       <svg
         viewBox={`0 0 ${VB_W} ${VB_H}`}
@@ -606,9 +649,9 @@ function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
         className="h-full w-full"
       >
         <defs>
-          <linearGradient id="bar-grad" x1="0" x2="0" y1="0" y2="1">
+          <linearGradient id="tps-bar" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#10b981" stopOpacity={0.85} />
-            <stop offset="100%" stopColor="#10b981" stopOpacity={0.55} />
+            <stop offset="100%" stopColor="#10b981" stopOpacity={0.45} />
           </linearGradient>
         </defs>
 
@@ -637,35 +680,33 @@ function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
           </g>
         ))}
 
-        {trades.map((t, i) => {
-          const x = xCenter(i) - barW / 2
-          const y = py(t.count)
-          const h = PAD_T + H - y
-          const showLabel = i % labelStep === 0 || i === trades.length - 1
+        <line
+          x1={PAD_L}
+          x2={PAD_L + W}
+          y1={PAD_T + H}
+          y2={PAD_T + H}
+          stroke="currentColor"
+          strokeOpacity={0.2}
+          strokeWidth={1}
+        />
+
+        {buckets.map((b, i) => {
+          const y = py(b.total)
           return (
-            <g key={t.sessionNumber}>
+            <g key={b.start}>
               <g
                 style={{
                   transformOrigin: `${xCenter(i)}px ${PAD_T + H}px`,
-                  animation: `bar-grow 0.9s cubic-bezier(0.22,1,0.36,1) ${0.05 + i * 0.08}s both`,
+                  animation: `tps-grow 0.7s cubic-bezier(0.22,1,0.36,1) ${0.05 + i * 0.04}s both`,
                 }}
               >
                 <rect
-                  x={x}
+                  x={xCenter(i) - barW / 2}
                   y={y}
                   width={barW}
-                  height={h}
-                  rx={2}
-                  fill="url(#bar-grad)"
-                />
-                <line
-                  x1={x}
-                  x2={x + barW}
-                  y1={y + 0.5}
-                  y2={y + 0.5}
-                  stroke="#10b981"
-                  strokeOpacity={0.9}
-                  strokeWidth={1}
+                  height={PAD_T + H - y}
+                  rx={3}
+                  fill={hover === i ? "#10b981" : "url(#tps-bar)"}
                 />
               </g>
               <text
@@ -674,32 +715,47 @@ function TradesChart({ trades }: { trades: TradesBySession[] | null }) {
                 textAnchor="middle"
                 className="fill-current text-foreground/70"
                 fontSize={11}
-                style={{
-                  animation: `fade-in 0.4s ease-out ${0.6 + i * 0.08}s both`,
-                }}
+                style={{ animation: `tps-fade 0.4s ease-out ${0.4 + i * 0.04}s both` }}
               >
-                {t.count}
+                {b.total}
               </text>
-              {showLabel && (
-                <text
-                  x={xCenter(i)}
-                  y={PAD_T + H + 18}
-                  textAnchor="middle"
-                  className="fill-current text-foreground/50"
-                  fontSize={11}
-                >
-                  #{t.sessionNumber}
-                </text>
-              )}
+              <text
+                x={xCenter(i)}
+                y={PAD_T + H + 18}
+                textAnchor="middle"
+                className="fill-current text-foreground/50"
+                fontSize={11}
+              >
+                #{b.start}
+              </text>
             </g>
           )
         })}
 
         <style>{`
-          @keyframes bar-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
-          @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+          @keyframes tps-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+          @keyframes tps-fade { from { opacity: 0; } to { opacity: 1; } }
         `}</style>
       </svg>
+
+      {hover !== null && cursor && (
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-[calc(100%+10px)] whitespace-nowrap rounded-md bg-background/95 px-2.5 py-1.5 font-pixel-square text-[11px] tracking-wide text-foreground shadow-lg ring-1 ring-foreground/10 backdrop-blur"
+          style={{ left: cursor.x, top: cursor.y }}
+        >
+          <div>
+            {buckets[hover].sessions > 1
+              ? `Sessions #${buckets[hover].start}–#${buckets[hover].end}`
+              : `Session #${buckets[hover].start}`}
+          </div>
+          <div className="text-foreground/60">
+            {buckets[hover].total} {buckets[hover].total === 1 ? "trade" : "trades"}
+            {buckets[hover].sessions > 1
+              ? ` · ${(buckets[hover].total / buckets[hover].sessions).toFixed(1)}/session`
+              : ""}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -719,12 +775,13 @@ function AssetAllocation({ agents }: { agents: Agent[] | null }) {
     }
   }
   const rows = [
-    { symbol: "CASH", value: cash, color: "#94a3b8" },
+    // CASH owns emerald (money green); holdings cycle the rest of the palette
+    { symbol: "CASH", value: cash, color: "#10b981" },
     ...Array.from(bySymbol.entries())
       .map(([symbol, value], i) => ({
         symbol,
         value,
-        color: SERIES_COLORS[(i + 1) % SERIES_COLORS.length],
+        color: SERIES_COLORS[1 + (i % (SERIES_COLORS.length - 1))],
       }))
       .sort((a, b) => b.value - a.value),
   ]
@@ -760,7 +817,7 @@ function AssetAllocation({ agents }: { agents: Agent[] | null }) {
         <Stat label="Top" value={`${top.symbol} ${top.pct.toFixed(0)}%`} />
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-[60%_1fr] items-center gap-4 overflow-hidden">
+      <div className="grid min-h-0 flex-1 grid-cols-[50%_1fr] items-center gap-3 overflow-hidden sm:grid-cols-[60%_1fr] sm:gap-4">
         <div
           className="relative h-full min-h-0 w-full"
           onMouseLeave={() => {
@@ -873,7 +930,7 @@ function Stat({ label, value }: { label: string; value: string }) {
       <span className="font-pixel-square text-[9px] uppercase tracking-wider text-foreground/40">
         {label}
       </span>
-      <span className="font-pixel-square text-xs tracking-wide text-foreground/90">
+      <span className="font-pixel-square truncate text-xs tracking-wide text-foreground/90">
         {value}
       </span>
     </div>

@@ -152,10 +152,10 @@ export default function TradesPage() {
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
                   Status
                 </TableHead>
-                <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-[10px] uppercase tracking-wider sm:table-cell">
                   Started
                 </TableHead>
-                <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
+                <TableHead className="font-pixel-square hidden text-[10px] uppercase tracking-wider md:table-cell">
                   Completed
                 </TableHead>
                 <TableHead className="font-pixel-square text-[10px] uppercase tracking-wider">
@@ -205,10 +205,10 @@ export default function TradesPage() {
                         {s.status}
                       </span>
                     </TableCell>
-                    <TableCell className="font-pixel-square text-xs text-foreground/60">
+                    <TableCell className="font-pixel-square hidden text-xs text-foreground/60 sm:table-cell">
                       {fmtTime(s.startedAt)}
                     </TableCell>
-                    <TableCell className="font-pixel-square text-xs text-foreground/60">
+                    <TableCell className="font-pixel-square hidden text-xs text-foreground/60 md:table-cell">
                       {s.completedAt ? fmtTime(s.completedAt) : "—"}
                     </TableCell>
                     <TableCell className="font-pixel-square text-xs text-foreground/80">

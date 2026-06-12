@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 
 import { cn } from "@/lib/utils"
+import { excludeBaselineAgents } from "@/lib/agents"
 import { Skeleton } from "@/components/ui/skeleton"
 import { BrandLogo } from "@/components/dashboard/brand-logo"
 
@@ -71,7 +72,7 @@ export default function AgentsPage() {
         return (await r.json()) as Agent[]
       })
       .then((data) => {
-        if (!cancelled) setAgents(data)
+        if (!cancelled) setAgents(excludeBaselineAgents(data))
       })
       .catch((err) => {
         if (!cancelled) setError(err.message ?? "Failed to fetch")
@@ -84,7 +85,7 @@ export default function AgentsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-0 flex-1">
+        <div className="relative min-w-full flex-1 sm:min-w-0">
           <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/40" />
           <input
             value={search}

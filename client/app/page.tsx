@@ -9,11 +9,13 @@ import { PixelParagraphInverse } from "@/components/ui/pixel-paragraph-words-inv
 import { CosmicButton } from "@/components/ui/cosmic-button"
 import { BackgroundRippleEffect } from "@/components/ui/background-ripple-effect"
 import { AsciiWave } from "@/components/ui/ascii-wave"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { ZAI, OpenAI, Gemini, Meta, Qwen } from "@lobehub/icons"
 
 export default function Page() {
   return (
     <main className="relative min-h-screen overflow-hidden bg-background text-foreground">
+      <ThemeToggle className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6" />
       <div className="absolute inset-0 -z-0">
         <BackgroundRippleEffect rows={20} cols={40} />
       </div>
